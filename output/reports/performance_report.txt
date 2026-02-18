@@ -3,36 +3,36 @@
 ============================================================
 
 RETURN METRICS
-  annualised_return             : 0.9993
-  annualised_volatility         : 0.3521
-  sharpe_ratio                  : 2.8383
-  sortino_ratio                 : 2.7907
-  calmar_ratio                  : 1.0169
+  annualised_return             : 1.1040
+  annualised_volatility         : 0.4322
+  sharpe_ratio                  : 2.5543
+  sortino_ratio                 : 2.2480
+  calmar_ratio                  : 1.3540
 
 DRAWDOWN
-  max_drawdown                  : -0.9827
+  max_drawdown                  : -0.8153
 
 DISTRIBUTION
-  mean_daily                    : 0.003008
-  std_daily                     : 0.022180
-  skewness                      : -2.422305
-  kurtosis                      : 17.746958
-  min_daily                     : -0.137202
+  mean_daily                    : 0.003367
+  std_daily                     : 0.027228
+  skewness                      : -4.961365
+  kurtosis                      : 46.461047
+  min_daily                     : -0.249952
   max_daily                     : 0.069816
-  pct_positive                  : 0.597115
-  var_95                        : -0.019731
-  cvar_95                       : -0.044282
+  pct_positive                  : 0.577766
+  var_95                        : -0.016619
+  cvar_95                       : -0.053972
 
 TRADE STATISTICS
-  n_trades                      : 85
-  win_rate                      : 0.6000
-  avg_pnl                       : 65622.5613
-  median_pnl                    : 73064.3963
-  total_pnl                     : 5577917.7140
-  avg_winner                    : 300515.5671
-  avg_loser                     : -286716.9473
-  profit_factor                 : 1.5722
+  n_trades                      : 93
+  win_rate                      : 0.5054
+  avg_pnl                       : 81991.4697
+  median_pnl                    : 1938.5853
+  total_pnl                     : 7625206.6802
+  avg_winner                    : 347828.6144
+  avg_loser                     : -189624.7434
+  profit_factor                 : 1.8742
   max_win                       : 1535949.7292
-  max_loss                      : -3018453.7954
-  avg_holding_days              : 21.8353
-  avg_iv_rv_spread              : 0.0047
+  max_loss                      : -314832.4832
+  avg_holding_days              : 19.1183
+  avg_iv_rv_spread              : 0.0036

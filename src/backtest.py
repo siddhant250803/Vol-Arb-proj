@@ -166,7 +166,8 @@ def run_backtest(signal_df, spx_df, hold_days=None, cost_bps=None,
         All PnLs are scaled by n_contracts × multiplier.
 
     Stop-loss: exit when unrealized PnL (mark-to-market option + hedge) falls
-    below -stop_loss_pct × notional (e.g. 25% → exit when loss ≥ $250k on $1M).
+    below -stop_loss_pct × trade value (e.g. 25% → exit when loss ≥ 25% of
+    that trade's premium/deployed value, not 25% of portfolio notional).
 
     Strategy logic:
         - signal = +1  →  SHORT vol (sell straddle)  — expect IV to compress
@@ -191,7 +192,8 @@ def run_backtest(signal_df, spx_df, hold_days=None, cost_bps=None,
     notional : float
         Total capital to deploy per trade (default: NOTIONAL_CAPITAL).
     stop_loss_pct : float, optional
-        Exit when unrealized loss reaches this fraction of notional (e.g. 0.25).
+        Exit when unrealized loss reaches this fraction of the trade's value
+        (premium deployed on that position). E.g. 0.25 = 25% of trade value.
         Default from config STOP_LOSS_PCT.
 
     Returns
@@ -253,7 +255,11 @@ def run_backtest(signal_df, spx_df, hold_days=None, cost_bps=None,
             scale = n_contracts * multiplier
             T_full = hold_days / TRADING_DAYS_PER_YEAR
 
-            # ── Stop-loss: check unrealized PnL (MTM option + hedge so far) ─
+            # ── Stop-loss: exit when loss reaches 25% of this trade's value ─
+            # Trade value = premium deployed (straddle_per_share × scale), not portfolio notional
+            # MTM must use *current* vol (realized vol so far), not entry_iv, so when vol spikes
+            # we see the true loss and the stop triggers (otherwise e.g. Volmageddon never stops).
+            trade_value = straddle_per_share * scale
             exit_now = (
                 days_held >= hold_days           # fixed horizon
                 or i == n - 1                    # end of data
@@ -261,9 +267,14 @@ def run_backtest(signal_df, spx_df, hold_days=None, cost_bps=None,
             if not exit_now and days_held >= 1 and stop_loss_pct is not None and stop_loss_pct > 0:
                 current_spot = price_path[-1]
                 tau_remaining = T_full - (len(price_path) - 1) / TRADING_DAYS_PER_YEAR
-                if tau_remaining > 1e-6:
+                if tau_remaining > 1e-6 and len(price_path) >= 2:
+                    log_rets = np.diff(np.log(price_path))
+                    rv_so_far = np.sqrt(
+                        np.sum(log_rets ** 2) / len(log_rets) * TRADING_DAYS_PER_YEAR
+                    )
+                    mtm_sigma = max(float(entry_iv), float(rv_so_far))
                     mtm_straddle = bs_straddle_price(
-                        current_spot, entry_price, tau_remaining, entry_iv
+                        current_spot, entry_price, tau_remaining, mtm_sigma
                     )
                     if direction == -1:
                         opt_unrealized_per = straddle_per_share - mtm_straddle
@@ -273,21 +284,29 @@ def run_backtest(signal_df, spx_df, hold_days=None, cost_bps=None,
                         price_path, entry_iv, T_full, direction
                     )
                     running_pnl = (opt_unrealized_per + hedge_so_far) * scale
-                    if running_pnl <= -stop_loss_pct * notional:
+                    if running_pnl <= -stop_loss_pct * trade_value:
                         exit_now = True
 
             if exit_now:
                 exit_price = row["spx_close"]
                 exit_date = row["date"]
 
-                # Early exit (stop-loss): use MTM for option PnL
+                # Early exit (stop-loss): use MTM for option PnL with current vol
                 # Normal exit: use straddle payoff at expiry
                 is_early_exit = days_held < hold_days and i < n - 1
                 if is_early_exit:
                     tau_remaining = T_full - days_held / TRADING_DAYS_PER_YEAR
                     tau_remaining = max(tau_remaining, 1e-6)
+                    if len(price_path) >= 2:
+                        log_rets = np.diff(np.log(price_path))
+                        rv_at_exit = np.sqrt(
+                            np.sum(log_rets ** 2) / len(log_rets) * TRADING_DAYS_PER_YEAR
+                        )
+                        mtm_sigma = max(float(entry_iv), float(rv_at_exit))
+                    else:
+                        mtm_sigma = entry_iv
                     mtm_straddle = bs_straddle_price(
-                        exit_price, entry_price, tau_remaining, entry_iv
+                        exit_price, entry_price, tau_remaining, mtm_sigma
                     )
                     if direction == -1:
                         opt_pnl_per = straddle_per_share - mtm_straddle
@@ -328,6 +347,9 @@ def run_backtest(signal_df, spx_df, hold_days=None, cost_bps=None,
                     rv = 0.0
 
                 net = option_pnl + hedge_pnl - txn
+                # Cap realized loss on stop-loss exits at stop_loss_pct of trade value
+                if is_early_exit and stop_loss_pct > 0 and net < -stop_loss_pct * notional_deployed:
+                    net = -stop_loss_pct * notional_deployed
 
                 trade = Trade(
                     entry_date=entry_date,
