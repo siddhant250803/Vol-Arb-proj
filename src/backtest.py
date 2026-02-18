@@ -25,6 +25,7 @@ from src.config import (
     POSITION_HOLD_DAYS,
     TRADING_DAYS_PER_YEAR,
     SIGNAL_ZSCORE_ENTRY,
+    STOP_LOSS_PCT,
 )
 
 
@@ -49,6 +50,7 @@ class Trade:
     txn_cost: float             # total transaction costs
     net_pnl: float              # option_pnl + hedge_pnl − txn_cost
     holding_days: int
+    stopped_out: bool = False   # True if exited via stop-loss
 
 
 # ────────────────────────────────────────────────────────────
@@ -154,7 +156,7 @@ def simulate_delta_hedge(prices, sigma, T_years, direction):
 # ────────────────────────────────────────────────────────────
 
 def run_backtest(signal_df, spx_df, hold_days=None, cost_bps=None,
-                 notional=None):
+                 notional=None, stop_loss_pct=None):
     """
     Run the full backtest: enter on signal, hold, exit, compute PnL.
 
@@ -163,13 +165,16 @@ def run_backtest(signal_df, spx_df, hold_days=None, cost_bps=None,
             n_contracts = floor(notional / (straddle_price × multiplier))
         All PnLs are scaled by n_contracts × multiplier.
 
+    Stop-loss: exit when unrealized PnL (mark-to-market option + hedge) falls
+    below -stop_loss_pct × notional (e.g. 25% → exit when loss ≥ $250k on $1M).
+
     Strategy logic:
         - signal = +1  →  SHORT vol (sell straddle)  — expect IV to compress
         - signal = −1  →  LONG vol  (buy straddle)   — expect vol spike
         - signal =  0  →  no trade
 
     PnL decomposition:
-        option_pnl  = n × multiplier × (straddle_at_entry − straddle_payoff)
+        option_pnl  = n × multiplier × (straddle_at_entry − straddle_payoff or MTM)
         hedge_pnl   = n × multiplier × (PnL from daily delta rebalancing)
         net_pnl     = option_pnl + hedge_pnl − transaction_costs
 
@@ -185,6 +190,9 @@ def run_backtest(signal_df, spx_df, hold_days=None, cost_bps=None,
         One-way transaction cost in basis points.
     notional : float
         Total capital to deploy per trade (default: NOTIONAL_CAPITAL).
+    stop_loss_pct : float, optional
+        Exit when unrealized loss reaches this fraction of notional (e.g. 0.25).
+        Default from config STOP_LOSS_PCT.
 
     Returns
     -------
@@ -195,6 +203,7 @@ def run_backtest(signal_df, spx_df, hold_days=None, cost_bps=None,
     hold_days = hold_days or POSITION_HOLD_DAYS
     cost_bps = cost_bps or TRANSACTION_COST_BPS
     notional = notional or NOTIONAL_CAPITAL
+    stop_loss_pct = stop_loss_pct if stop_loss_pct is not None else STOP_LOSS_PCT
     multiplier = CONTRACT_MULTIPLIER
 
     # Merge SPX prices with signals
@@ -240,46 +249,71 @@ def run_backtest(signal_df, spx_df, hold_days=None, cost_bps=None,
 
         if in_position:
             days_held = i - entry_idx
+            price_path = merged.iloc[entry_idx: i + 1]["spx_close"].values
+            scale = n_contracts * multiplier
+            T_full = hold_days / TRADING_DAYS_PER_YEAR
 
-            # ── EXIT CONDITIONS ────────────────────────────
+            # ── Stop-loss: check unrealized PnL (MTM option + hedge so far) ─
             exit_now = (
                 days_held >= hold_days           # fixed horizon
                 or i == n - 1                    # end of data
             )
+            if not exit_now and days_held >= 1 and stop_loss_pct is not None and stop_loss_pct > 0:
+                current_spot = price_path[-1]
+                tau_remaining = T_full - (len(price_path) - 1) / TRADING_DAYS_PER_YEAR
+                if tau_remaining > 1e-6:
+                    mtm_straddle = bs_straddle_price(
+                        current_spot, entry_price, tau_remaining, entry_iv
+                    )
+                    if direction == -1:
+                        opt_unrealized_per = straddle_per_share - mtm_straddle
+                    else:
+                        opt_unrealized_per = mtm_straddle - straddle_per_share
+                    hedge_so_far = simulate_delta_hedge(
+                        price_path, entry_iv, T_full, direction
+                    )
+                    running_pnl = (opt_unrealized_per + hedge_so_far) * scale
+                    if running_pnl <= -stop_loss_pct * notional:
+                        exit_now = True
 
             if exit_now:
                 exit_price = row["spx_close"]
                 exit_date = row["date"]
 
-                # Get price path for delta-hedging
-                price_path = merged.iloc[entry_idx: i + 1]["spx_close"].values
-
-                # Straddle payoff at expiry (per share)
-                call_payoff = max(exit_price - entry_price, 0)
-                put_payoff = max(entry_price - exit_price, 0)
-                straddle_payoff = call_payoff + put_payoff
-
-                # Option PnL per share
-                if direction == -1:
-                    # SHORT vol: sold straddle, collect premium, pay payoff
-                    opt_pnl_per = straddle_per_share - straddle_payoff
+                # Early exit (stop-loss): use MTM for option PnL
+                # Normal exit: use straddle payoff at expiry
+                is_early_exit = days_held < hold_days and i < n - 1
+                if is_early_exit:
+                    tau_remaining = T_full - days_held / TRADING_DAYS_PER_YEAR
+                    tau_remaining = max(tau_remaining, 1e-6)
+                    mtm_straddle = bs_straddle_price(
+                        exit_price, entry_price, tau_remaining, entry_iv
+                    )
+                    if direction == -1:
+                        opt_pnl_per = straddle_per_share - mtm_straddle
+                    else:
+                        opt_pnl_per = mtm_straddle - straddle_per_share
+                    option_pnl = opt_pnl_per * scale
+                    hedge_pnl_per = simulate_delta_hedge(
+                        price_path, entry_iv, T_full, direction
+                    )
+                    hedge_pnl = hedge_pnl_per * scale
                 else:
-                    # LONG vol: bought straddle, paid premium, receive payoff
-                    opt_pnl_per = straddle_payoff - straddle_per_share
-
-                # Scale by contracts × multiplier
-                scale = n_contracts * multiplier
-                option_pnl = opt_pnl_per * scale
-
-                # Delta-hedge PnL (per share, then scaled)
-                T = hold_days / TRADING_DAYS_PER_YEAR
-                hedge_pnl_per = simulate_delta_hedge(
-                    price_path, entry_iv, T, direction
-                )
-                hedge_pnl = hedge_pnl_per * scale
+                    # Straddle payoff at expiry (per share)
+                    call_payoff = max(exit_price - entry_price, 0)
+                    put_payoff = max(entry_price - exit_price, 0)
+                    straddle_payoff = call_payoff + put_payoff
+                    if direction == -1:
+                        opt_pnl_per = straddle_per_share - straddle_payoff
+                    else:
+                        opt_pnl_per = straddle_payoff - straddle_per_share
+                    option_pnl = opt_pnl_per * scale
+                    hedge_pnl_per = simulate_delta_hedge(
+                        price_path, entry_iv, T_full, direction
+                    )
+                    hedge_pnl = hedge_pnl_per * scale
 
                 # Transaction costs (on full notional deployed)
-                # Cost on entry + exit for both call and put legs
                 notional_deployed = straddle_per_share * scale
                 txn = (cost_bps / 10000.0) * notional_deployed * 2  # entry + exit
 
@@ -310,6 +344,7 @@ def run_backtest(signal_df, spx_df, hold_days=None, cost_bps=None,
                     txn_cost=txn,
                     net_pnl=net,
                     holding_days=days_held,
+                    stopped_out=is_early_exit,
                 )
                 trades.append(trade)
 
@@ -338,15 +373,18 @@ def run_backtest(signal_df, spx_df, hold_days=None, cost_bps=None,
         pnl_df = pd.DataFrame(columns=["date", "daily_pnl", "daily_return",
                                         "cumulative_pnl", "cumulative_return"])
 
+    n_stopped = sum(1 for t in trades if getattr(t, "stopped_out", False))
     print(f"[backtest] Completed: {len(trades)} trades, "
           f"{len(pnl_df)} trading days with PnL.  "
-          f"(notional=${notional:,.0f})")
+          f"(notional=${notional:,.0f}, stop-loss={stop_loss_pct:.0%})")
     if trades:
         wins = sum(1 for t in trades if t.net_pnl > 0)
         total_pnl = sum(t.net_pnl for t in trades)
         avg_contracts = np.mean([t.n_contracts for t in trades])
         print(f"[backtest] Win rate: {wins}/{len(trades)} "
               f"({100*wins/len(trades):.1f}%)")
+        if n_stopped > 0:
+            print(f"[backtest] Stop-loss exits: {n_stopped}/{len(trades)}")
         print(f"[backtest] Total net PnL: ${total_pnl:,.2f}  "
               f"(avg {avg_contracts:.0f} contracts/trade)")
 
@@ -391,5 +429,6 @@ def trades_to_dataframe(trades):
             "txn_cost": t.txn_cost,
             "net_pnl": t.net_pnl,
             "holding_days": t.holding_days,
+            "stopped_out": getattr(t, "stopped_out", False),
         })
     return pd.DataFrame(records)

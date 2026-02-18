@@ -1,0 +1,153 @@
+
+=================================================================
+  ROBUSTNESS, OUT-OF-SAMPLE & STRESS TESTING SUITE
+=================================================================
+
+Loading data ...
+Building features ...
+Running RV models ...
+Building VRP signal ...
+
+Full-sample baseline backtest ...
+  Baseline: 85 trades, Sharpe=2.84, MaxDD=-98.3%
+
+=================================================================
+  A. OUT-OF-SAMPLE TEST (Train 60 % / Test 40 %)
+=================================================================
+
+  IN-SAMPLE  (2011-04-01 00:00:00 → 2018-09-25 00:00:00)
+    Trades:     51
+    Win Rate:   62.7%
+    Total PnL:  $   2,311,204
+    Ann Return: 54.84%
+    Sharpe:     1.40
+    Sortino:    1.19
+    Max DD:     -98.27%
+
+  OUT-OF-SAMPLE  (2018-09-26 00:00:00 → 2023-02-28 00:00:00)
+    Trades:     34
+    Win Rate:   55.9%
+    Total PnL:  $   3,266,713
+    Ann Return: 195.41%
+    Sharpe:     7.05
+    Sortino:    17.21
+    Max DD:     -80.43%
+
+=================================================================
+  B. WALK-FORWARD ANALYSIS (5 windows)
+=================================================================
+
+  Window 1: 2011-04-01 → 2014-04-25
+    Trades=16  Win=56%  PnL=$ 1,640,712  Sharpe=  7.70  MaxDD=-44.0%
+
+  Window 2: 2014-04-28 → 2016-07-11
+    Trades=15  Win=67%  PnL=$ 1,792,407  Sharpe= 11.83  MaxDD=-58.0%
+
+  Window 3: 2016-07-12 → 2018-09-24
+    Trades=20  Win=65%  PnL=$-1,376,953  Sharpe= -1.16  MaxDD=-98.3%
+
+  Window 4: 2018-09-25 → 2020-12-08
+    Trades=16  Win=50%  PnL=$ 1,468,249  Sharpe=  4.83  MaxDD=-70.6%
+
+  Window 5: 2020-12-09 → 2023-02-24
+    Trades=18  Win=61%  PnL=$ 1,774,490  Sharpe= 11.68  MaxDD=-35.0%
+
+=================================================================
+  C. YEARLY PERFORMANCE BREAKDOWN
+=================================================================
+
+    Year Trades   Win%       TotalPnL  Sharpe    MaxDD
+  ───────────────────────────────────────────────────────
+    2011      2  100% $   1,326,486 19762.97    0.0%
+    2012      2    0% $  -1,073,980   -0.39  -90.2%
+    2013     10   60% $     727,290    8.01  -35.2%
+    2014      8   62% $     457,483    6.47  -31.9%
+    2015      7   29% $    -273,572   -1.17  -56.4%
+    2016      8   75% $   1,933,220   86.20  -10.8%
+    2017      9   67% $     909,342   11.08  -30.6%
+    2018      9   56% $  -2,690,940   -1.29  -97.7%
+    2019      7   57% $     186,228    1.73  -44.9%
+    2020      7   29% $    -697,552   -2.89  -70.6%
+    2021      8   62% $   1,059,678   16.64  -32.3%
+    2022      8   62% $     667,010    8.80  -33.4%
+    2023      2   50% $      71,777    9.68   -2.3%
+
+=================================================================
+  D. STRESS-PERIOD ANALYSIS
+=================================================================
+
+  GFC (2008)
+    Trades=0  Win=0%  PnL=$         0  Sharpe=   nan  MaxDD=nan%
+
+  Flash Crash (2010)
+    Trades=0  Win=0%  PnL=$         0  Sharpe=   nan  MaxDD=nan%
+
+  EU Debt Crisis (2011)
+    Trades=2  Win=50%  PnL=$   838,154  Sharpe=1643.21  MaxDD=-10.5%
+
+  Taper Tantrum (2013)
+    Trades=4  Win=50%  PnL=$   -84,294  Sharpe= -5.16  MaxDD=-14.7%
+
+  China/Oil (2015–16)
+    Trades=5  Win=80%  PnL=$ 1,248,335  Sharpe= 52.16  MaxDD=-8.3%
+
+  Volmageddon (2018)
+    Trades=4  Win=50%  PnL=$-3,678,345  Sharpe= -0.84  MaxDD=-98.5%
+
+  COVID Crash (2020)
+    Trades=4  Win=50%  PnL=$ 1,459,800  Sharpe=159.07  MaxDD=-29.6%
+
+  Rate Hikes (2022)
+    Trades=8  Win=62%  PnL=$   667,010  Sharpe=  8.80  MaxDD=-33.4%
+
+=================================================================
+  E. VOLATILITY-REGIME ANALYSIS
+=================================================================
+
+  Low Vol (bottom 33%)
+    Trades=33  Win=61%  PnL=$-3,288,572  Sharpe= -0.98  MaxDD=-99.9%
+
+  Med Vol (middle 33%)
+    Trades=22  Win=36%  PnL=$-10,933,129  Sharpe= -1.11  MaxDD=-100.0%
+
+  High Vol (top 33%)
+    Trades=34  Win=62%  PnL=$ 2,558,486  Sharpe=  2.28  MaxDD=-96.1%
+
+=================================================================
+  F. PARAMETER SENSITIVITY GRID
+=================================================================
+
+  F1. Z-score Threshold Sensitivity
+  (hold=22d, cost=5bps)
+    z>0.50  Trades=113  Sharpe=  1.97  PnL=$ 4,703,421
+    z>0.75  Trades=101  Sharpe=  4.39  PnL=$ 8,096,714
+    z>1.00  Trades= 85  Sharpe=  2.84  PnL=$ 5,577,918
+    z>1.25  Trades= 68  Sharpe=  5.90  PnL=$ 6,029,910
+    z>1.50  Trades= 48  Sharpe=  4.94  PnL=$ 4,048,290
+    z>2.00  Trades= 32  Sharpe=  0.48  PnL=$   504,403
+
+  F2. Holding Period Sensitivity
+  (threshold=1.0, cost=5bps)
+    hold=10d  Trades=146  Sharpe= 67.15  PnL=$25,470,701
+    hold=15d  Trades=111  Sharpe=  9.10  PnL=$11,472,393
+    hold=22d  Trades= 85  Sharpe=  2.84  PnL=$ 5,577,918
+    hold=30d  Trades= 66  Sharpe=  0.19  PnL=$   737,044
+    hold=44d  Trades= 51  Sharpe= -0.94  PnL=$-1,466,899
+
+  F3. Transaction Cost Sensitivity
+  (threshold=1.0, hold=22d)
+    cost= 0bps  Trades= 85  Sharpe=  2.84  PnL=$ 5,577,918
+    cost= 3bps  Trades= 85  Sharpe=  2.86  PnL=$ 5,611,736
+    cost= 5bps  Trades= 85  Sharpe=  2.84  PnL=$ 5,577,918
+    cost=10bps  Trades= 85  Sharpe=  2.77  PnL=$ 5,493,371
+    cost=15bps  Trades= 85  Sharpe=  2.71  PnL=$ 5,408,824
+    cost=20bps  Trades= 85  Sharpe=  2.65  PnL=$ 5,324,278
+
+=================================================================
+  G. BOOTSTRAP SHARPE CONFIDENCE INTERVALS
+=================================================================
+
+  Sample Sharpe:    2.84
+  Bootstrap Mean:   3.71
+  95% CI:           [-0.81, 13.67]
+  P(Sharpe > 0):    89.1%

@@ -103,6 +103,7 @@ SIGNAL_LOOKBACK = 252                # rolling window for z-score
 HEDGE_FREQUENCY = "daily"            # delta-hedge frequency
 TRANSACTION_COST_BPS = 5             # one-way cost in basis points
 POSITION_HOLD_DAYS = 22              # default holding period
+STOP_LOSS_PCT = 0.25                 # exit when unrealized loss reaches 25% of notional
 
 # ────────────────────────────────────────────────────────────
 # 8. Plotting Defaults
