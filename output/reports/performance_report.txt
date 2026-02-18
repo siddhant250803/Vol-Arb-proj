@@ -1,0 +1,38 @@
+============================================================
+  IV vs Forecast RV — Performance Report
+============================================================
+
+RETURN METRICS
+  annualised_return             : 0.9993
+  annualised_volatility         : 0.3521
+  sharpe_ratio                  : 2.8383
+  sortino_ratio                 : 2.7907
+  calmar_ratio                  : 1.0169
+
+DRAWDOWN
+  max_drawdown                  : -0.9827
+
+DISTRIBUTION
+  mean_daily                    : 0.003008
+  std_daily                     : 0.022180
+  skewness                      : -2.422305
+  kurtosis                      : 17.746958
+  min_daily                     : -0.137202
+  max_daily                     : 0.069816
+  pct_positive                  : 0.597115
+  var_95                        : -0.019731
+  cvar_95                       : -0.044282
+
+TRADE STATISTICS
+  n_trades                      : 85
+  win_rate                      : 0.6000
+  avg_pnl                       : 65622.5613
+  median_pnl                    : 73064.3963
+  total_pnl                     : 5577917.7140
+  avg_winner                    : 300515.5671
+  avg_loser                     : -286716.9473
+  profit_factor                 : 1.5722
+  max_win                       : 1535949.7292
+  max_loss                      : -3018453.7954
+  avg_holding_days              : 21.8353
+  avg_iv_rv_spread              : 0.0047

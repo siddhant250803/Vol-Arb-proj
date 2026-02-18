@@ -1,0 +1,41 @@
+Variable Name,Type,Description
+secid,Float,Security ID (secid)
+date,Date,The Date of this Price (date)
+symbol,Char,Option Symbol (symbol)
+symbol_flag,Char,0=Old option notation 1=New OSI symbol (symbol_flag)
+exdate,Date,Expiration Date of the Option (exdate)
+last_date,Date,Date on Which the Option Last Traded (last_date)
+cp_flag,Char,"C=Call, P=Put (cp_flag)"
+strike_price,Float,Strike Price of the Option Times 1000 (strike_price)
+best_bid,Float,Highest Closing Bid Across All Exchanges (best_bid)
+best_offer,Float,Lowest Closing Ask Across All Exchanges (best_offer)
+volume,Float,Volume (volume)
+open_interest,Float,Open Interest for the Option (open_interest)
+impl_volatility,Float,Implied Volatility of the Option (impl_volatility)
+delta,Float,Delta of the Option (delta)
+gamma,Float,Gamma of the Option (gamma)
+vega,Float,Vega/Kappa of the Option (vega)
+theta,Float,Theta of the Option (theta)
+optionid,Float,Unique ID for the Option Contract (optionid)
+cfadj,Float,Cumulative Adjustment Factor (cfadj)
+am_settlement,Float,am_settlement
+contract_size,Float,contract_size
+ss_flag,Char,"Settlement Flag: 0=Standard, 1=Non-std, E=Non-std Exp. Date (ss_flag)"
+forward_price,Float,forward_price
+expiry_indicator,Char,expiry_indicator
+root,Char,Root of the Option Symbol (root)
+suffix,Char,Suffix of the Option Symbol (suffix)
+secid,Float,Security ID (secid)
+div_convention,Char,Method of Incorporating Dividends Into the Option Calculations (div_convention)
+exercise_style,Char,"(A)merican, (E)uropean, or ? (exercise_style)"
+am_set_flag,Char,AM Settlement Flag (am_set_flag)
+secid,Float,Security ID (secid)
+cusip,Char,CUSIP Number (cusip)
+ticker,Char,Ticker Symbol (ticker)
+sic,Char,SIC Code (sic)
+index_flag,Char,Index Flag (index_flag)
+exchange_d,Float,Exchange Designator (exchange_d)
+class,Char,Class Designator (class)
+issue_type,Char,The Type of Security (issue_type)
+industry_group,Float,Industry Group (industry_group)
+issuer,Char,Description of the Issuing Company (issuer)

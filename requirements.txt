@@ -1,0 +1,29 @@
+# ============================================================
+# Vol-Arb Project Dependencies
+# MS&E 244 — IV vs Forecast RV Trading Strategy
+# ============================================================
+
+# --- Core scientific stack ---
+numpy
+pandas
+scipy
+
+# --- Visualization ---
+matplotlib
+seaborn
+
+# --- Econometrics / time-series ---
+arch              # GARCH family models
+statsmodels       # HAR-RV, regression, diagnostics
+
+# --- Machine learning (optional extensions) ---
+scikit-learn
+
+# --- Data handling ---
+openpyxl          # Excel I/O (if needed)
+
+# --- Progress bars ---
+tqdm
+
+# --- Warnings / utilities ---
+joblib
