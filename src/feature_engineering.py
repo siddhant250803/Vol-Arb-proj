@@ -401,16 +401,16 @@ def add_event_flags(df, date_col="date"):
     fomc = pd.to_datetime(FOMC_DATES)
     out = df.copy()
 
-    # Mark dates within ±1 business day of an FOMC date
+    # Mark dates within ±7 calendar days of an FOMC meeting
     out["fomc_window"] = 0
     for fd in fomc:
-        mask = (out[date_col] >= fd - pd.Timedelta(days=2)) & (
-            out[date_col] <= fd + pd.Timedelta(days=1)
+        mask = (out[date_col] >= fd - pd.Timedelta(days=7)) & (
+            out[date_col] <= fd + pd.Timedelta(days=7)
         )
         out.loc[mask, "fomc_window"] = 1
 
     print(
-        f"[features] FOMC windows flagged: "
+        f"[features] FOMC windows flagged (±7 days): "
         f"{out['fomc_window'].sum()} / {len(out)} days."
     )
     return out

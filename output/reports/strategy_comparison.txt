@@ -1,0 +1,62 @@
+=================================================================
+  Strategy Comparison — VRP vs Variance Swap vs Distribution
+=================================================================
+
+  VRP (ATM IV)
+  ────────────────────────────────────────
+    Trades:        85
+    Win Rate:      60.0%
+    Total PnL:     $5,577,918
+    Avg PnL:       $65,623
+    Ann. Return:   99.93%
+    Ann. Vol:      35.21%
+    Sharpe:        2.84
+    Sortino:       2.79
+    Max Drawdown:  -98.27%
+    Skewness:      -2.422
+    Kurtosis:      17.747
+
+  Var Swap (MFIV)
+  ────────────────────────────────────────
+    Trades:        78
+    Win Rate:      62.8%
+    Total PnL:     $5,619,588
+    Avg PnL:       $72,046
+    Ann. Return:   95.37%
+    Ann. Vol:      53.24%
+    Sharpe:        1.79
+    Sortino:       1.77
+    Max Drawdown:  -98.61%
+    Skewness:      -0.550
+    Kurtosis:      11.327
+
+  Distribution
+  ────────────────────────────────────────
+    Trades:        85
+    Win Rate:      47.1%
+    Total PnL:     $-1,734,279
+    Avg PnL:       $-20,403
+    Ann. Return:   -25.46%
+    Ann. Vol:      34.26%
+    Sharpe:        -0.74
+    Sortino:       -0.96
+    Max Drawdown:  -98.06%
+    Skewness:      -0.622
+    Kurtosis:      5.620
+
+
+=================================================================
+  FOMC Window (±7 days) vs Non-FOMC
+=================================================================
+
+  VRP (ATM IV)
+    FOMC (±7d)       Trades= 31  Win=55%  PnL=$   3,441,585  Sharpe=  2.68  MaxDD=-97.9%
+    Non-FOMC         Trades= 57  Win=46%  PnL=$   2,457,262  Sharpe=  1.02  MaxDD=-99.3%
+
+  Var Swap (MFIV)
+    FOMC (±7d)       Trades= 28  Win=57%  PnL=$   7,164,082  Sharpe=  4.40  MaxDD=-99.4%
+    Non-FOMC         Trades= 51  Win=61%  PnL=$  10,962,660  Sharpe= 14.56  MaxDD=-98.0%
+
+  Distribution
+    FOMC (±7d)       Trades= 32  Win=44%  PnL=$  -4,426,686  Sharpe= -0.97  MaxDD=-100.0%
+    Non-FOMC         Trades= 55  Win=49%  PnL=$  -1,863,793  Sharpe= -0.87  MaxDD=-99.3%
