@@ -39,7 +39,7 @@ PROJECT_ROOT = Path(__file__).resolve().parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
 from src.config import (
-    OUTPUT_DIR, FIGURES_DIR, REPORTS_DIR,
+    OUTPUT_DIR, FIGURES_DIR, REPORTS_DIR, REPORT_FIGURES_DIR,
     SIGNAL_ZSCORE_ENTRY, SIGNAL_LOOKBACK,
     NOTIONAL_CAPITAL, TRADING_DAYS_PER_YEAR,
     POSITION_HOLD_DAYS, TRANSACTION_COST_BPS,
@@ -52,7 +52,8 @@ from src.backtest import run_backtest, trades_to_dataframe
 from src.performance import (
     sharpe_ratio, sortino_ratio, annualised_return,
     annualised_volatility, compute_drawdown, calmar_ratio,
-    return_statistics,
+    return_statistics, benchmark_returns_from_spx, benchmark_comparison,
+    probabilistic_sharpe_ratio,
 )
 
 warnings.filterwarnings("ignore")
@@ -74,15 +75,17 @@ def _save(fig, name):
     path = FIGURES_DIR / f"{name}.png"
     fig.savefig(path, dpi=150, bbox_inches="tight")
     print(f"  [viz] Saved → {path.relative_to(FIGURES_DIR.parent.parent)}")
+    REPORT_FIGURES_DIR.mkdir(parents=True, exist_ok=True)
+    fig.savefig(REPORT_FIGURES_DIR / f"{name}.png", dpi=150, bbox_inches="tight")
     plt.close(fig)
 
 
 def _metrics(dr):
-    """Return a dict of standard metrics from a daily-return Series."""
+    """Return a dict of standard metrics from a daily-return Series (incl. PSR)."""
     if len(dr) < 10:
         return {k: np.nan for k in [
             "ann_ret", "ann_vol", "sharpe", "sortino",
-            "calmar", "max_dd", "skew", "kurt", "n_days",
+            "calmar", "max_dd", "skew", "kurt", "n_days", "psr",
         ]}
     dd = compute_drawdown(dr)
     cal = annualised_return(dr) / abs(dd["max_drawdown"]) if dd["max_drawdown"] != 0 else np.inf
@@ -96,6 +99,7 @@ def _metrics(dr):
         "skew": dr.skew(),
         "kurt": dr.kurtosis(),
         "n_days": len(dr),
+        "psr": probabilistic_sharpe_ratio(dr, sr_ref=0.0),
     }
 
 
@@ -429,8 +433,11 @@ def bootstrap_sharpe(pnl_df, n_boot=10000, ci=0.95):
     dr = pnl_df["daily_return"].dropna().values
     n = len(dr)
     block_size = 22  # monthly blocks to preserve autocorrelation
-    n_blocks = max(n // block_size, 1)
+    if n <= block_size:
+        _log(f"  Skipping bootstrap: only {n} observations (need > {block_size}).")
+        return np.array([]), np.nan, np.nan, np.nan
 
+    n_blocks = max(n // block_size, 1)
     rng = np.random.RandomState(42)
     boot_sharpes = []
 
@@ -461,11 +468,11 @@ def bootstrap_sharpe(pnl_df, n_boot=10000, ci=0.95):
 #  PLOTTING
 # ════════════════════════════════════════════════════════════
 
-def plot_oos_walkforward(oos_results, split_date, wf_results):
+def plot_oos_walkforward(oos_results, split_date, wf_results, spx_df=None):
     fig = plt.figure(figsize=(20, 10))
     gs = gridspec.GridSpec(2, 2, hspace=0.35, wspace=0.3)
 
-    # OOS cumulative PnL
+    # OOS cumulative PnL (strategy + benchmark)
     ax = fig.add_subplot(gs[0, 0])
     for label, color in [("IN-SAMPLE", "steelblue"), ("OUT-OF-SAMPLE", "coral")]:
         r = oos_results.get(label, {})
@@ -473,26 +480,34 @@ def plot_oos_walkforward(oos_results, split_date, wf_results):
         if pdf is not None and not pdf.empty:
             ax.plot(pdf["date"], pdf["cumulative_pnl"] / 1e6,
                     color=color, lw=1.2, label=label)
+    if spx_df is not None and not spx_df.empty:
+        full_start = oos_results.get("IN-SAMPLE", {}).get("start")
+        full_end = oos_results.get("OUT-OF-SAMPLE", {}).get("end")
+        if full_start is not None and full_end is not None:
+            bench = benchmark_returns_from_spx(spx_df, full_start, full_end)
+            if len(bench) > 1:
+                cum = (1 + bench).cumprod()
+                ax.plot(bench.index, (cum - 1) * 1e6 / 1e6, color="gray", ls="--", lw=0.8, label="Buy & Hold SPX")
     ax.axvline(split_date, color="grey", ls="--", lw=1, label=f"Split: {split_date.date()}")
-    ax.set_title("Out-of-Sample: Cumulative PnL ($M)", fontweight="bold")
+    ax.set_title("Out-of-Sample: Cumulative PnL ($M) vs SPX", fontweight="bold")
     ax.set_ylabel("$ Millions")
-    ax.legend(fontsize=9)
+    ax.legend(fontsize=8)
     ax.grid(True, alpha=0.3)
 
-    # OOS metric comparison bars
+    # OOS metrics: Sharpe, Sortino, PSR
     ax = fig.add_subplot(gs[0, 1])
     labels_oos = ["IN-SAMPLE", "OUT-OF-SAMPLE"]
-    metrics_to_show = ["sharpe", "sortino"]
+    metrics_to_show = ["sharpe", "sortino", "psr"]
     x = np.arange(len(metrics_to_show))
     w = 0.35
     for i, label in enumerate(labels_oos):
         r = oos_results.get(label, {})
-        vals = [r.get(m, 0) for m in metrics_to_show]
+        vals = [r.get(m, 0) if not (isinstance(r.get(m), float) and np.isnan(r.get(m))) else 0 for m in metrics_to_show]
         ax.bar(x + i * w, vals, w, label=label,
                color=["steelblue", "coral"][i], alpha=0.8)
     ax.set_xticks(x + w / 2)
-    ax.set_xticklabels(["Sharpe", "Sortino"])
-    ax.set_title("OOS Risk-Adjusted Metrics", fontweight="bold")
+    ax.set_xticklabels(["Sharpe", "Sortino", "PSR"])
+    ax.set_title("OOS Risk-Adjusted Metrics (PSR = Prob. Sharpe > 0)", fontweight="bold")
     ax.legend(fontsize=9)
     ax.axhline(0, color="grey", lw=0.5)
     ax.grid(True, alpha=0.3, axis="y")
@@ -520,13 +535,14 @@ def plot_oos_walkforward(oos_results, split_date, wf_results):
     ax.legend(fontsize=8, ncol=3)
     ax.grid(True, alpha=0.3)
 
-    fig.suptitle("Out-of-Sample & Walk-Forward Analysis",
+    fig.suptitle("Out-of-Sample & Walk-Forward Analysis (vs Buy & Hold SPX)",
                  fontsize=15, fontweight="bold", y=1.01)
     _save(fig, "15_oos_walkforward")
 
 
-def plot_stress_periods(stress_results):
-    fig, axes = plt.subplots(1, 3, figsize=(20, 6))
+def plot_stress_periods(stress_results, spx_df=None):
+    n_cols = 4 if spx_df is not None and not spx_df.empty else 3
+    fig, axes = plt.subplots(1, n_cols, figsize=(6 * n_cols, 6))
 
     names = [r["period"] for r in stress_results]
     x = np.arange(len(names))
@@ -562,30 +578,55 @@ def plot_stress_periods(stress_results):
     ax.set_title("Max Drawdown (%)", fontweight="bold")
     ax.grid(True, alpha=0.3, axis="x")
 
-    fig.suptitle("Stress-Period Performance", fontsize=14, fontweight="bold", y=1.02)
+    # Benchmark (SPX) return during each stress period
+    if n_cols == 4 and spx_df is not None:
+        ax = axes[3]
+        bench_rets = []
+        for r in stress_results:
+            period = r["period"]
+            start, end = STRESS_PERIODS.get(period, (None, None))
+            if start and end:
+                bench = benchmark_returns_from_spx(spx_df, start, end)
+                tot_ret = (1 + bench).prod() - 1 if len(bench) > 0 else 0
+                bench_rets.append(tot_ret * 100)
+            else:
+                bench_rets.append(0)
+        colors_b = ["green" if b > 0 else "red" for b in bench_rets]
+        ax.barh(x, bench_rets, color=colors_b, alpha=0.6, edgecolor="none")
+        ax.set_yticks(x)
+        ax.set_yticklabels(names, fontsize=9)
+        ax.set_title("SPX Return (%)", fontweight="bold")
+        ax.axvline(0, color="grey", lw=0.5)
+        ax.grid(True, alpha=0.3, axis="x")
+
+    fig.suptitle("Stress-Period Performance (Strategy vs SPX)", fontsize=14, fontweight="bold", y=1.02)
     fig.tight_layout()
     _save(fig, "16_stress_periods")
 
 
 def plot_regime_analysis(regime_results):
-    fig, axes = plt.subplots(1, 3, figsize=(16, 5))
+    fig, axes = plt.subplots(1, 4, figsize=(20, 5))
     names = list(regime_results.keys())
     x = np.arange(len(names))
 
     for ax, metric, title in zip(
         axes,
-        ["sharpe", "total_pnl", "win_rate"],
-        ["Sharpe Ratio", "Total PnL ($K)", "Win Rate (%)"],
+        ["sharpe", "total_pnl", "win_rate", "psr"],
+        ["Sharpe Ratio", "Total PnL ($K)", "Win Rate (%)", "PSR (Prob. Sharpe > 0)"],
     ):
         vals = []
         for n in names:
             v = regime_results[n].get(metric, 0)
+            if v is None or (isinstance(v, float) and np.isnan(v)):
+                v = 0
             if metric == "total_pnl":
                 v /= 1000
             elif metric == "win_rate":
                 v *= 100
+            elif metric == "psr":
+                v = v * 100 if not np.isnan(v) else 0
             vals.append(v)
-        colors = ["#4e79a7", "#f28e2b", "#e15759"]
+        colors = ["#4e79a7", "#f28e2b", "#e15759", "#76b7b2"]
         ax.bar(x, vals, color=colors[:len(names)], alpha=0.8, edgecolor="none")
         ax.set_xticks(x)
         ax.set_xticklabels([n.split("(")[0].strip() for n in names], fontsize=9)
@@ -593,7 +634,7 @@ def plot_regime_analysis(regime_results):
         ax.axhline(0, color="grey", lw=0.5)
         ax.grid(True, alpha=0.3, axis="y")
 
-    fig.suptitle("Volatility-Regime Analysis", fontsize=14, fontweight="bold", y=1.02)
+    fig.suptitle("Volatility-Regime Analysis (incl. PSR)", fontsize=14, fontweight="bold", y=1.02)
     fig.tight_layout()
     _save(fig, "17_regime_analysis")
 
@@ -601,19 +642,23 @@ def plot_regime_analysis(regime_results):
 def plot_param_sensitivity(thresh_res, hold_res, cost_res):
     fig, axes = plt.subplots(1, 3, figsize=(20, 6))
 
-    # Threshold
+    # Threshold (Sharpe + PSR on secondary)
     ax = axes[0]
     thrs = [r["threshold"] for r in thresh_res]
     shs = [r.get("sharpe", 0) for r in thresh_res]
+    psrs = [r.get("psr", np.nan) * 100 if not (isinstance(r.get("psr"), float) and np.isnan(r.get("psr"))) else 0 for r in thresh_res]
     nt = [r.get("n_trades", 0) for r in thresh_res]
-    ax.bar(np.arange(len(thrs)), shs, color="steelblue", alpha=0.7)
-    ax.set_xticks(np.arange(len(thrs)))
+    x = np.arange(len(thrs))
+    ax.bar(x - 0.2, shs, 0.35, color="steelblue", alpha=0.7, label="Sharpe")
+    ax.set_xticks(x)
     ax.set_xticklabels([f"z>{t:.1f}" for t in thrs], fontsize=9)
-    ax.set_title("Z-Score Threshold", fontweight="bold")
+    ax.set_title("Z-Score Threshold (Sharpe & PSR)", fontweight="bold")
     ax.set_ylabel("Sharpe")
+    ax.legend(loc="upper right", fontsize=8)
     ax2 = ax.twinx()
-    ax2.plot(np.arange(len(thrs)), nt, "ro-", ms=6, label="# Trades")
-    ax2.set_ylabel("# Trades", color="red")
+    ax2.plot(x, psrs, "go-", ms=6, label="PSR (%)", color="darkgreen")
+    ax2.set_ylabel("PSR (%)", color="darkgreen")
+    ax2.set_ylim(0, 105)
     ax.grid(True, alpha=0.3, axis="y")
 
     # Holding period
@@ -646,13 +691,13 @@ def plot_param_sensitivity(thresh_res, hold_res, cost_res):
     ax2.set_ylabel("Total PnL ($M)", color="green")
     ax.grid(True, alpha=0.3, axis="y")
 
-    fig.suptitle("Parameter Sensitivity Analysis",
+    fig.suptitle("Parameter Sensitivity (incl. PSR = Prob. Sharpe > 0)",
                  fontsize=14, fontweight="bold", y=1.02)
     fig.tight_layout()
     _save(fig, "18_param_sensitivity")
 
 
-def plot_bootstrap(boot_sharpes, lo, hi, mean_s):
+def plot_bootstrap(boot_sharpes, lo, hi, mean_s, psr=None):
     fig, ax = plt.subplots(figsize=(10, 6))
     ax.hist(boot_sharpes, bins=80, color="steelblue", alpha=0.6, edgecolor="none",
             density=True, label=f"Bootstrap (n={len(boot_sharpes):,})")
@@ -662,7 +707,10 @@ def plot_bootstrap(boot_sharpes, lo, hi, mean_s):
     ax.axvline(0, color="grey", lw=1, ls="-", alpha=0.5)
 
     pct_pos = (boot_sharpes > 0).mean()
-    ax.text(0.02, 0.95, f"P(Sharpe > 0) = {pct_pos:.1%}",
+    txt = f"P(Sharpe > 0) = {pct_pos:.1%}"
+    if psr is not None and not (isinstance(psr, float) and np.isnan(psr)):
+        txt += f"\nPSR (Prob. Sharpe > 0) = {psr:.1%}"
+    ax.text(0.02, 0.95, txt,
             transform=ax.transAxes, fontsize=12, fontweight="bold",
             va="top", bbox=dict(boxstyle="round", fc="lightyellow", alpha=0.8))
 
@@ -675,21 +723,35 @@ def plot_bootstrap(boot_sharpes, lo, hi, mean_s):
     _save(fig, "19_bootstrap_sharpe")
 
 
-def plot_yearly(yearly_results):
+def plot_yearly(yearly_results, spx_df=None):
     fig, axes = plt.subplots(2, 2, figsize=(18, 10))
 
     years = [r["year"] for r in yearly_results]
     x = np.arange(len(years))
+    w = 0.35
 
-    # Sharpe by year
+    # Sharpe by year (optionally vs benchmark)
     ax = axes[0, 0]
     shs = [r.get("sharpe", 0) for r in yearly_results]
     colors = ["green" if s > 0 else "red" for s in shs]
-    ax.bar(x, shs, color=colors, alpha=0.7, edgecolor="none")
+    ax.bar(x - w / 2, shs, w, color=colors, alpha=0.7, edgecolor="none", label="Strategy")
+    if spx_df is not None and not spx_df.empty:
+        bench_sharpes = []
+        for r in yearly_results:
+            y = r["year"]
+            start, end = f"{y}-01-01", f"{y}-12-31"
+            bench = benchmark_returns_from_spx(spx_df, start, end)
+            if len(bench) > 10:
+                sr_b = sharpe_ratio(bench)
+                bench_sharpes.append(sr_b)
+            else:
+                bench_sharpes.append(0)
+        ax.bar(x + w / 2, bench_sharpes, w, color="gray", alpha=0.6, label="SPX")
     ax.set_xticks(x)
     ax.set_xticklabels(years, fontsize=8, rotation=45)
-    ax.set_title("Sharpe Ratio by Year", fontweight="bold")
+    ax.set_title("Sharpe Ratio by Year (vs SPX)", fontweight="bold")
     ax.axhline(0, color="grey", lw=0.5)
+    ax.legend(fontsize=8)
     ax.grid(True, alpha=0.3, axis="y")
 
     # Total PnL by year
@@ -723,7 +785,7 @@ def plot_yearly(yearly_results):
     ax.set_title("Max Drawdown (%) by Year", fontweight="bold")
     ax.grid(True, alpha=0.3, axis="y")
 
-    fig.suptitle("Yearly Performance Breakdown",
+    fig.suptitle("Yearly Performance Breakdown (Strategy vs SPX)",
                  fontsize=15, fontweight="bold", y=1.01)
     fig.tight_layout()
     _save(fig, "20_yearly_breakdown")
@@ -790,12 +852,14 @@ def main():
 
     # ── Generate plots ────────────────────────────────────
     _log("\n  Generating plots ...")
-    plot_oos_walkforward(oos_res, split_date, wf_res)
-    plot_stress_periods(stress_res)
+    plot_oos_walkforward(oos_res, split_date, wf_res, spx_df=spx_df)
+    plot_stress_periods(stress_res, spx_df=spx_df)
     plot_regime_analysis(regime_res)
     plot_param_sensitivity(thresh_res, hold_res, cost_res)
-    plot_bootstrap(boot_sharpes, lo, hi, mean_s)
-    plot_yearly(yearly_res)
+    full_psr = probabilistic_sharpe_ratio(full_pnl["daily_return"], sr_ref=0.0) if not full_pnl.empty else None
+    if len(boot_sharpes) > 0:
+        plot_bootstrap(boot_sharpes, lo, hi, mean_s, psr=full_psr)
+    plot_yearly(yearly_res, spx_df=spx_df)
 
     _log("\n" + "=" * 65)
     _log("  ROBUSTNESS SUITE COMPLETE")

@@ -23,6 +23,7 @@ from src.config import (
     VARIANCE_SWAP_STRIKE_BAND,
     TRADING_DAYS_PER_YEAR,
     RV_HORIZONS,
+    RV_FORECAST_HORIZON,
     ANNUALISATION_FACTOR,
     FOMC_DATES,
 )
@@ -93,7 +94,8 @@ def compute_atm_iv(options_df):
                 fill_value="extrapolate",
             )
             iv_30 = float(f(CONSTANT_MATURITY_DAYS))
-            if iv_30 > 0:
+            # Clip to reasonable range to avoid extrapolation artefacts
+            if 0.01 < iv_30 < 2.0:
                 results.append({"date": date, "atm_iv_30d": iv_30})
         except Exception:
             continue
@@ -290,7 +292,8 @@ def compute_realized_variance(spx_df, windows=None):
     for label in windows:
         df[f"rvol_{label}"] = np.sqrt(df[f"rv_{label}"])
 
-    df = df.drop(columns=["return_sq"]).dropna()
+    rv_cols = [f"rv_{k}" for k in windows.keys()] + [f"rvol_{k}" for k in windows.keys()]
+    df = df.drop(columns=["return_sq"]).dropna(subset=rv_cols)
     print(f"[features] Realized variance: {len(df)} rows for {list(windows.keys())}.")
     return df
 
@@ -332,10 +335,11 @@ def compute_bipower_variation(spx_df, window=22):
 # ────────────────────────────────────────────────────────────
 # B3.  Forward-Realised Variance  (label for forecasting)
 # ────────────────────────────────────────────────────────────
-def compute_forward_rv(spx_df, horizon=22):
+def compute_forward_rv(spx_df, horizon=None):
     """
     Compute the *future* realised variance over the next ``horizon`` days.
     This is the target variable for RV forecast models.
+    Default horizon matches config.RV_FORECAST_HORIZON (e.g. 22 ≈ 1 month).
 
     Parameters
     ----------
@@ -349,21 +353,9 @@ def compute_forward_rv(spx_df, horizon=22):
     pd.DataFrame
         Columns: date, fwd_rv  (annualised)
     """
+    if horizon is None:
+        horizon = RV_FORECAST_HORIZON
     df = spx_df[["date", "log_return"]].copy()
-    df["return_sq"] = df["log_return"] ** 2
-    df["fwd_rv"] = (
-        df["return_sq"]
-        .shift(-horizon)               # ← look *forward*
-        .rolling(window=horizon, min_periods=horizon)
-        .sum()
-        .shift(-(horizon - 1))          # align to current date
-    )
-    # Annualise
-    df["fwd_rv"] = df["fwd_rv"] * (ANNUALISATION_FACTOR / horizon)
-    df["fwd_rvol"] = np.sqrt(df["fwd_rv"].clip(lower=0))
-
-    # Simpler approach: shift squared returns backward
-    # Actually, compute sum of next `horizon` squared returns from date t
     return_sq = df["log_return"].values ** 2
     n = len(return_sq)
     fwd_rv = np.full(n, np.nan)

@@ -19,6 +19,7 @@ OPTIONS_DIR = DATA_DIR / "Options"
 RATES_DIR = DATA_DIR / "Risk-Free"
 OUTPUT_DIR = PROJECT_ROOT / "output"
 FIGURES_DIR = OUTPUT_DIR / "figures"
+REPORT_FIGURES_DIR = PROJECT_ROOT / "report" / "figures"  # copy for LaTeX report
 DATA_OUTPUT_DIR = OUTPUT_DIR / "data"
 REPORTS_DIR = OUTPUT_DIR / "reports"
 

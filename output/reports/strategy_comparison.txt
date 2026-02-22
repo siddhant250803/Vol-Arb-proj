@@ -4,45 +4,51 @@
 
   VRP (ATM IV)
   ────────────────────────────────────────
-    Trades:        85
-    Win Rate:      60.0%
-    Total PnL:     $5,577,918
-    Avg PnL:       $65,623
-    Ann. Return:   99.93%
-    Ann. Vol:      35.21%
-    Sharpe:        2.84
-    Sortino:       2.79
-    Max Drawdown:  -98.27%
-    Skewness:      -2.422
-    Kurtosis:      17.747
+    Trades:        93
+    Win Rate:      50.5%
+    Total PnL:     $7,625,207
+    Avg PnL:       $81,991
+    Ann. Return:   110.40%
+    Ann. Vol:      43.22%
+    Sharpe:        2.55
+    PSR (SR>0):    100.0%
+    Sortino:       2.25
+    Max Drawdown:  -81.53%
+    Alpha (ann):   109.22%
+    Skewness:      -4.961
+    Kurtosis:      46.461
 
   Var Swap (MFIV)
   ────────────────────────────────────────
-    Trades:        78
-    Win Rate:      62.8%
-    Total PnL:     $5,619,588
-    Avg PnL:       $72,046
-    Ann. Return:   95.37%
-    Ann. Vol:      53.24%
-    Sharpe:        1.79
-    Sortino:       1.77
-    Max Drawdown:  -98.61%
-    Skewness:      -0.550
-    Kurtosis:      11.327
+    Trades:        90
+    Win Rate:      54.4%
+    Total PnL:     $11,020,809
+    Avg PnL:       $122,453
+    Ann. Return:   217.41%
+    Ann. Vol:      60.63%
+    Sharpe:        3.59
+    PSR (SR>0):    100.0%
+    Sortino:       3.07
+    Max Drawdown:  -92.28%
+    Alpha (ann):   217.62%
+    Skewness:      -2.154
+    Kurtosis:      19.657
 
   Distribution
   ────────────────────────────────────────
-    Trades:        85
-    Win Rate:      47.1%
-    Total PnL:     $-1,734,279
-    Avg PnL:       $-20,403
-    Ann. Return:   -25.46%
-    Ann. Vol:      34.26%
-    Sharpe:        -0.74
-    Sortino:       -0.96
-    Max Drawdown:  -98.06%
-    Skewness:      -0.622
-    Kurtosis:      5.620
+    Trades:        108
+    Win Rate:      41.7%
+    Total PnL:     $3,306,600
+    Avg PnL:       $30,617
+    Ann. Return:   -5.14%
+    Ann. Vol:      53.71%
+    Sharpe:        -0.10
+    PSR (SR>0):    100.0%
+    Sortino:       -0.09
+    Max Drawdown:  -99.87%
+    Alpha (ann):   -3.59%
+    Skewness:      -3.015
+    Kurtosis:      30.527
 
 
 =================================================================
@@ -50,13 +56,13 @@
 =================================================================
 
   VRP (ATM IV)
-    FOMC (±7d)       Trades= 31  Win=55%  PnL=$   3,441,585  Sharpe=  2.68  MaxDD=-97.9%
-    Non-FOMC         Trades= 57  Win=46%  PnL=$   2,457,262  Sharpe=  1.02  MaxDD=-99.3%
+    FOMC (±7d)       Trades= 36  Win=56%  PnL=$  11,276,230  Sharpe= 93.39  MaxDD=-76.5%
+    Non-FOMC         Trades= 62  Win=44%  PnL=$   6,982,947  Sharpe=  4.04  MaxDD=-79.1%
 
   Var Swap (MFIV)
-    FOMC (±7d)       Trades= 28  Win=57%  PnL=$   7,164,082  Sharpe=  4.40  MaxDD=-99.4%
-    Non-FOMC         Trades= 51  Win=61%  PnL=$  10,962,660  Sharpe= 14.56  MaxDD=-98.0%
+    FOMC (±7d)       Trades= 33  Win=61%  PnL=$  21,986,612  Sharpe=4105.77  MaxDD=-63.4%
+    Non-FOMC         Trades= 60  Win=50%  PnL=$  14,383,434  Sharpe= 16.76  MaxDD=-89.2%
 
   Distribution
-    FOMC (±7d)       Trades= 32  Win=44%  PnL=$  -4,426,686  Sharpe= -0.97  MaxDD=-100.0%
-    Non-FOMC         Trades= 55  Win=49%  PnL=$  -1,863,793  Sharpe= -0.87  MaxDD=-99.3%
+    FOMC (±7d)       Trades= 54  Win=24%  PnL=$  -2,216,113  Sharpe= -0.99  MaxDD=-100.0%
+    Non-FOMC         Trades= 81  Win=40%  PnL=$     673,232  Sharpe= -0.86  MaxDD=-99.9%

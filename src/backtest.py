@@ -11,6 +11,11 @@ Simulates a volatility-trading strategy that:
 
 The core abstraction is a ``Trade`` dataclass that tracks each
 position from entry to exit, computing component PnLs.
+
+**Daily PnL note:** each trade's net PnL is spread *evenly* across its
+holding days (amortized attribution). This is a simplification — it does
+not reflect intra-trade mark-to-market. Sharpe, drawdown, and other
+return-based stats computed from this series are therefore approximations.
 """
 
 import numpy as np
@@ -370,8 +375,9 @@ def run_backtest(signal_df, spx_df, hold_days=None, cost_bps=None,
                 )
                 trades.append(trade)
 
-                # Record daily PnL (spread evenly across holding period)
-                daily_dollar = net / max(days_held, 1)
+                # Amortized daily PnL: net PnL spread evenly over calendar days in position.
+                num_days = max(i - entry_idx + 1, 1)  # so sum(daily_pnl) == net
+                daily_dollar = net / num_days
                 daily_ret = daily_dollar / notional
                 for d in range(entry_idx, min(i + 1, n)):
                     daily_pnl.append({
@@ -438,7 +444,7 @@ def trades_to_dataframe(trades):
             "entry_date": t.entry_date,
             "exit_date": t.exit_date,
             "direction": t.direction,
-            "direction_label": "short_vol" if t.direction == -1 else "long_vol",
+            "direction_label": "short_vol" if t.direction == 1 else "long_vol",
             "n_contracts": t.n_contracts,
             "entry_iv": t.entry_iv,
             "realised_vol": t.realised_vol,

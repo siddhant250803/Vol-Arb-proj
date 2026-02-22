@@ -32,7 +32,7 @@ PROJECT_ROOT = Path(__file__).resolve().parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
 from src.config import (
-    OUTPUT_DIR, FIGURES_DIR, REPORTS_DIR,
+    OUTPUT_DIR, FIGURES_DIR, REPORTS_DIR, REPORT_FIGURES_DIR,
     SIGNAL_ZSCORE_ENTRY, SIGNAL_LOOKBACK,
     NOTIONAL_CAPITAL, TRADING_DAYS_PER_YEAR,
 )
@@ -49,6 +49,8 @@ from src.backtest import run_backtest, trades_to_dataframe
 from src.performance import (
     sharpe_ratio, sortino_ratio, annualised_return,
     annualised_volatility, compute_drawdown, return_statistics,
+    benchmark_returns_from_spx, benchmark_comparison,
+    probabilistic_sharpe_ratio, trade_statistics,
 )
 
 warnings.filterwarnings("ignore")
@@ -131,19 +133,18 @@ def _make_distribution_signal(feature_df, spx_df, options_df):
 #  PERFORMANCE SUMMARY
 # ════════════════════════════════════════════════════════════
 
-def _summarise(name, trades, pnl_df):
-    """Compute a summary dict for one strategy."""
+def _summarise(name, trades, pnl_df, spx_df=None):
+    """Compute a summary dict for one strategy (incl. PSR and benchmark when spx_df given)."""
     if pnl_df.empty or len(pnl_df) < 5:
         return {"strategy": name, "n_trades": 0}
 
-    dr = pnl_df["daily_return"]
+    dr = pnl_df["daily_return"].dropna()
     trades_df = trades_to_dataframe(trades)
-
     wins = sum(1 for t in trades if t.net_pnl > 0)
     total_pnl = sum(t.net_pnl for t in trades)
     dd = compute_drawdown(dr)
 
-    return {
+    out = {
         "strategy": name,
         "n_trades": len(trades),
         "win_rate": wins / max(len(trades), 1),
@@ -156,7 +157,32 @@ def _summarise(name, trades, pnl_df):
         "max_dd": dd["max_drawdown"],
         "skewness": dr.skew(),
         "kurtosis": dr.kurtosis(),
+        "psr": probabilistic_sharpe_ratio(dr, sr_ref=0.0),
     }
+    # Trade-level stats (gain per trade, holding period)
+    if not trades_df.empty:
+        ts = trade_statistics(trades_df)
+        out["avg_holding_days"] = ts.get("avg_holding_days", np.nan)
+        out["trades_per_year"] = ts.get("trades_per_year", np.nan)
+    else:
+        out["avg_holding_days"] = np.nan
+        out["trades_per_year"] = np.nan
+
+    # Benchmark comparison when SPX available
+    if spx_df is not None and len(dr) > 10:
+        if "date" in pnl_df.columns:
+            strat_ret = pnl_df.set_index("date")["daily_return"].dropna()
+        else:
+            strat_ret = dr
+        start_date, end_date = strat_ret.index.min(), strat_ret.index.max()
+        bench_ret = benchmark_returns_from_spx(spx_df, start_date, end_date)
+        if len(bench_ret) > 0:
+            bc = benchmark_comparison(strat_ret, bench_ret)
+            out["benchmark_sharpe"] = bc.get("benchmark_sharpe", np.nan)
+            out["benchmark_ann_return"] = bc.get("benchmark_ann_return", np.nan)
+            out["alpha_ann"] = bc.get("alpha_ann", np.nan)
+            out["information_ratio"] = bc.get("information_ratio", np.nan)
+    return out
 
 
 # ════════════════════════════════════════════════════════════
@@ -166,9 +192,8 @@ def _summarise(name, trades, pnl_df):
 def _fomc_split(signal_df, spx_df, feature_df, strategy_name):
     """
     Split a strategy's trades into FOMC-window and non-FOMC-window
-    and compare performance.
+    and compare performance (incl. PSR when spx_df available).
     """
-    # Merge fomc_window flag into signal_df
     fomc_flags = feature_df[["date", "fomc_window"]].drop_duplicates("date")
     merged = signal_df.merge(fomc_flags, on="date", how="left")
     merged["fomc_window"] = merged["fomc_window"].fillna(0).astype(int)
@@ -180,7 +205,7 @@ def _fomc_split(signal_df, spx_df, feature_df, strategy_name):
             results[label] = {"n_trades": 0}
             continue
         trades, pnl_df = run_backtest(sub, spx_df)
-        results[label] = _summarise(f"{strategy_name}_{label}", trades, pnl_df)
+        results[label] = _summarise(f"{strategy_name}_{label}", trades, pnl_df, spx_df=spx_df)
 
     return results
 
@@ -194,11 +219,13 @@ def _save(fig, name):
     path = FIGURES_DIR / f"{name}.png"
     fig.savefig(path, dpi=150, bbox_inches="tight")
     print(f"  [viz] Saved → {path.relative_to(FIGURES_DIR.parent.parent)}")
+    REPORT_FIGURES_DIR.mkdir(parents=True, exist_ok=True)
+    fig.savefig(REPORT_FIGURES_DIR / f"{name}.png", dpi=150, bbox_inches="tight")
     plt.close(fig)
 
 
-def plot_strategy_comparison(results, pnl_dict):
-    """5-panel comparison of the three strategies."""
+def plot_strategy_comparison(results, pnl_dict, spx_df=None):
+    """6-panel comparison: strategies + benchmark (SPX buy-and-hold), PSR and Alpha in table."""
     strategies = [r["strategy"] for r in results if r["n_trades"] > 0]
     if len(strategies) == 0:
         print("  [viz] No strategies to compare — skipping.")
@@ -206,19 +233,33 @@ def plot_strategy_comparison(results, pnl_dict):
 
     fig, axes = plt.subplots(2, 3, figsize=(20, 11))
 
-    # 1. Cumulative PnL
+    # 1. Cumulative PnL (strategies + benchmark)
     ax = axes[0, 0]
     for name in strategies:
         if name in pnl_dict and not pnl_dict[name].empty:
             pdf = pnl_dict[name]
             ax.plot(pdf["date"], pdf["cumulative_pnl"] / 1e6, label=name, lw=1.2)
-    ax.set_title("Cumulative PnL ($M)", fontsize=12, fontweight="bold")
+    # Add buy-and-hold SPX benchmark ($1M notional)
+    if spx_df is not None and not spx_df.empty:
+        all_dates = pd.concat([pnl_dict[n]["date"] for n in strategies if n in pnl_dict and not pnl_dict[n].empty], ignore_index=True)
+        start, end = all_dates.min(), all_dates.max()
+        spx = spx_df[["date", "spx_close"]].copy()
+        spx["date"] = pd.to_datetime(spx["date"])
+        spx = spx.sort_values("date").drop_duplicates("date")
+        spx = spx[(spx["date"] >= start) & (spx["date"] <= end)]
+        if len(spx) > 1:
+            spx = spx.sort_values("date")
+            ret = spx["spx_close"].pct_change().fillna(0)
+            cum_ret = (1 + ret).cumprod()
+            bench_pnl_m = (cum_ret.values - 1) * 1e6 / 1e6  # PnL in $M from $1M
+            ax.plot(spx["date"], bench_pnl_m, label="Buy & Hold SPX", lw=1, color="gray", ls="--")
+    ax.set_title("Cumulative PnL ($M) vs Buy & Hold SPX", fontsize=12, fontweight="bold")
     ax.set_ylabel("$ Millions")
     ax.legend(fontsize=9)
     ax.axhline(0, color="grey", lw=0.5)
     ax.grid(True, alpha=0.3)
 
-    # 2. Sharpe ratios
+    # 2. Sharpe ratios (strategies only; benchmark in table)
     ax = axes[0, 1]
     sharpes = [r["sharpe"] for r in results if r["n_trades"] > 0]
     colors = ["green" if s > 0 else "red" for s in sharpes]
@@ -232,7 +273,7 @@ def plot_strategy_comparison(results, pnl_dict):
     n_trades = [r["n_trades"] for r in results if r["n_trades"] > 0]
     win_rates = [r["win_rate"] * 100 for r in results if r["n_trades"] > 0]
     x = np.arange(len(strategies))
-    bars = ax.bar(x, n_trades, color="steelblue", alpha=0.7, label="# Trades")
+    ax.bar(x, n_trades, color="steelblue", alpha=0.7, label="# Trades")
     ax2 = ax.twinx()
     ax2.plot(x, win_rates, "ro-", label="Win Rate %", ms=8)
     ax.set_xticks(x)
@@ -269,52 +310,57 @@ def plot_strategy_comparison(results, pnl_dict):
     ax.legend(fontsize=9)
     ax.grid(True, alpha=0.3)
 
-    # 6. Summary table
+    # 6. Summary table (incl. PSR, Alpha vs benchmark)
     ax = axes[1, 2]
     ax.axis("off")
     table_data = []
     for r in results:
         if r["n_trades"] > 0:
+            psr = r.get("psr", np.nan)
+            alpha = r.get("alpha_ann", np.nan)
+            psr_str = f"{psr:.0%}" if not (isinstance(psr, float) and np.isnan(psr)) else "—"
+            alpha_str = f"{alpha:.1%}" if not (isinstance(alpha, float) and np.isnan(alpha)) else "—"
             table_data.append([
                 r["strategy"],
                 f"{r['n_trades']}",
                 f"{r['win_rate']:.0%}",
                 f"${r['total_pnl']/1e6:.2f}M",
                 f"{r['sharpe']:.2f}",
-                f"{r['sortino']:.2f}",
+                psr_str,
+                alpha_str,
                 f"{r['max_dd']:.1%}",
             ])
     if table_data:
         table = ax.table(
             cellText=table_data,
-            colLabels=["Strategy", "Trades", "Win%", "Total PnL", "Sharpe", "Sortino", "Max DD"],
+            colLabels=["Strategy", "Trades", "Win%", "Total PnL", "Sharpe", "PSR(SR>0)", "Alpha", "Max DD"],
             loc="center",
             cellLoc="center",
         )
         table.auto_set_font_size(False)
-        table.set_fontsize(10)
-        table.scale(1.0, 1.8)
+        table.set_fontsize(9)
+        table.scale(0.95, 1.8)
         for (row, col), cell in table.get_celld().items():
             if row == 0:
                 cell.set_facecolor("#4472C4")
                 cell.set_text_props(color="white", fontweight="bold")
-    ax.set_title("Performance Summary", fontsize=12, fontweight="bold")
+    ax.set_title("Performance Summary (PSR = Prob. Sharpe > 0)", fontsize=12, fontweight="bold")
 
-    fig.suptitle("Strategy Comparison: VRP vs Variance Swap vs Distribution",
+    fig.suptitle("Strategy Comparison: VRP vs Variance Swap vs Distribution (vs Buy & Hold SPX)",
                  fontsize=16, fontweight="bold", y=1.01)
     fig.tight_layout()
     _save(fig, "13_strategy_comparison")
 
 
 def plot_fomc_analysis(fomc_results):
-    """Compare FOMC vs non-FOMC performance across strategies."""
-    fig, axes = plt.subplots(1, 3, figsize=(18, 6))
+    """Compare FOMC vs non-FOMC: Sharpe, Total PnL, Win Rate, PSR(SR>0)."""
+    fig, axes = plt.subplots(2, 2, figsize=(14, 10))
 
     strategies = list(fomc_results.keys())
-    metrics = ["sharpe", "total_pnl", "win_rate"]
-    titles = ["Sharpe Ratio", "Total PnL ($K)", "Win Rate (%)"]
+    metrics = ["sharpe", "total_pnl", "win_rate", "psr"]
+    titles = ["Sharpe Ratio", "Total PnL ($K)", "Win Rate (%)", "PSR (Prob. Sharpe > 0)"]
 
-    for ax, metric, title in zip(axes, metrics, titles):
+    for ax, metric, title in zip(axes.flat, metrics, titles):
         fomc_vals = []
         nonfomc_vals = []
         labels = []
@@ -323,6 +369,10 @@ def plot_fomc_analysis(fomc_results):
             fr = fomc_results[strat]
             f_val = fr.get("fomc", {}).get(metric, 0)
             nf_val = fr.get("non_fomc", {}).get(metric, 0)
+            if f_val is None or (isinstance(f_val, float) and np.isnan(f_val)):
+                f_val = 0
+            if nf_val is None or (isinstance(nf_val, float) and np.isnan(nf_val)):
+                nf_val = 0
 
             if metric == "total_pnl":
                 f_val /= 1000
@@ -330,6 +380,9 @@ def plot_fomc_analysis(fomc_results):
             elif metric == "win_rate":
                 f_val *= 100
                 nf_val *= 100
+            elif metric == "psr":
+                f_val = f_val * 100 if not np.isnan(f_val) else 0
+                nf_val = nf_val * 100 if not np.isnan(nf_val) else 0
 
             fomc_vals.append(f_val)
             nonfomc_vals.append(nf_val)
@@ -344,11 +397,13 @@ def plot_fomc_analysis(fomc_results):
         ax.set_xticks(x)
         ax.set_xticklabels(labels, fontsize=9)
         ax.set_title(title, fontsize=12, fontweight="bold")
-        ax.legend(fontsize=9)
+        ax.legend(fontsize=8)
         ax.axhline(0, color="grey", lw=0.5)
         ax.grid(True, alpha=0.3, axis="y")
+        if metric == "psr":
+            ax.set_ylabel("%")
 
-    fig.suptitle("FOMC Window (±7 days) vs Non-FOMC Performance",
+    fig.suptitle("FOMC Window (±7 days) vs Non-FOMC Performance (incl. PSR)",
                  fontsize=14, fontweight="bold", y=1.02)
     fig.tight_layout()
     _save(fig, "14_fomc_analysis")
@@ -403,7 +458,7 @@ def main():
 
         print(f"\n  → {name}")
         trades, pnl_df = run_backtest(sig_df, data["spx"])
-        results.append(_summarise(name, trades, pnl_df))
+        results.append(_summarise(name, trades, pnl_df, spx_df=data["spx"]))
         pnl_dict[name] = pnl_df
 
     # ── FOMC analysis ──────────────────────────────────────
@@ -451,8 +506,10 @@ def main():
                 f"    Ann. Return:   {r['ann_return']:.2%}",
                 f"    Ann. Vol:      {r['ann_vol']:.2%}",
                 f"    Sharpe:        {r['sharpe']:.2f}",
+                f"    PSR (SR>0):    {r.get('psr', np.nan):.1%}",
                 f"    Sortino:       {r['sortino']:.2f}",
                 f"    Max Drawdown:  {r['max_dd']:.2%}",
+                f"    Alpha (ann):   {r.get('alpha_ann', np.nan):.2%}",
                 f"    Skewness:      {r['skewness']:.3f}",
                 f"    Kurtosis:      {r['kurtosis']:.3f}",
             ]
@@ -500,7 +557,7 @@ def main():
 
     # ── Plots ──────────────────────────────────────────────
     print("\n  Generating plots ...")
-    plot_strategy_comparison(results, pnl_dict)
+    plot_strategy_comparison(results, pnl_dict, spx_df=data["spx"])
     if fomc_results:
         plot_fomc_analysis(fomc_results)
 

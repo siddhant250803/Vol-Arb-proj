@@ -58,16 +58,19 @@ def compute_vrp_signal(feature_df, iv_col="atm_iv_30d", rv_col=None):
     """
     df = feature_df.copy()
 
-    # ── Select RV forecast column ──────────────────────────
+    # ── Select RV forecast column (must be model forecast, never future data) ─
+    FORBIDDEN_RV_COLS = {"fwd_rv", "fwd_rvol"}  # future realized vol = label only, would leak
     if rv_col is None:
         for candidate in [
             "composite_rv_forecast",
             "har_rv_forecast",
             "garch_forecast",
         ]:
-            if candidate in df.columns and df[candidate].notna().sum() > 50:
+            if candidate in df.columns and candidate not in FORBIDDEN_RV_COLS and df[candidate].notna().sum() > 50:
                 rv_col = candidate
                 break
+    if rv_col in FORBIDDEN_RV_COLS:
+        raise ValueError("rv_col must not be fwd_rv/fwd_rvol (future data); use forecast columns only.")
     if rv_col is None:
         raise ValueError("No valid RV forecast column found in feature_df.")
 
@@ -270,8 +273,9 @@ def compute_distribution_signal(spx_df, options_df, n_bins=10, lookback=252):
             continue
 
         # Risk-neutral distribution (simplified Black-Scholes log-normal)
-        # Scale the bins by IV rather than realised vol
-        iv_scale = avg_iv / roll_std.loc[date] if roll_std.loc[date] > 0 else 1.0
+        # Scale the bins by IV rather than realised vol (guard vs NaN/zero)
+        rs = roll_std.loc[date]
+        iv_scale = (avg_iv / rs) if (pd.notna(rs) and rs > 0) else 1.0
         rn_bins = bin_edges * iv_scale
         rn_prob = np.diff(norm.cdf(rn_bins))
         rn_prob = rn_prob / rn_prob.sum()

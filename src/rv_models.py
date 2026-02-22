@@ -364,9 +364,6 @@ def run_all_rv_models(feature_df, train_window=504):
         result["composite_rv_forecast"] = np.nan
 
     result = result.reset_index()
-    # Index name is "date" (from set_index), so column is already "date"
-    if "index" in result.columns:
-        result = result.rename(columns={"index": "date"})
 
     n_any = result[fcast_cols].notna().any(axis=1).sum()
     print(f"\n[rv_models] Combined forecasts: {n_any} rows "

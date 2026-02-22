@@ -19,6 +19,7 @@ import pandas as pd
 
 from src.config import (
     OPTIONS_FILE,
+    OPTIONS_USECOLS,
     YIELD_FILE,
     COL,
     STRIKE_DIVISOR,
@@ -57,13 +58,29 @@ def load_options_raw(filepath=None, nrows=None):
     filepath = filepath or OPTIONS_FILE
     print(f"[data_loader] Loading options from {filepath.name} ...")
 
+    # Only load the columns we need (saves memory on 5M+ row files)
+    usecols = None
+    try:
+        header = pd.read_csv(filepath, nrows=0).columns.tolist()
+        available = [c for c in OPTIONS_USECOLS if c in header]
+        if len(available) >= len(OPTIONS_USECOLS) * 0.8:
+            usecols = available
+    except Exception:
+        pass
+
     df = pd.read_csv(
         filepath,
+        usecols=usecols,
         parse_dates=["date", "exdate"],
         low_memory=False,
         nrows=nrows,
     )
     print(f"[data_loader]   → {len(df):,} rows loaded.")
+    # Ensure required columns exist so downstream does not fail later with obscure errors
+    required = ["date", "exdate", "impl_volatility", "strike_price", "best_bid", "best_offer"]
+    missing = [c for c in required if c not in df.columns]
+    if missing:
+        raise ValueError(f"[data_loader] Options CSV missing required columns: {missing}. Check file or usecols.")
     return df
 
 
@@ -306,8 +323,13 @@ def load_yield_curve(filepath=None):
 
     raw = raw.set_index("date").sort_index()
 
-    # Convert column names to integers (maturity in months)
-    raw.columns = [int(c) for c in raw.columns]
+    # Convert column names to integers (maturity in months); skip non-numeric
+    def _safe_int(c):
+        try:
+            return int(float(c))
+        except (ValueError, TypeError):
+            return c
+    raw.columns = [_safe_int(c) for c in raw.columns]
 
     print(
         f"[data_loader]   → {len(raw):,} days, maturities 1–{raw.columns.max()} months"

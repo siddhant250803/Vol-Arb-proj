@@ -18,7 +18,7 @@ by the backtester.
 import numpy as np
 import pandas as pd
 
-from src.config import TRADING_DAYS_PER_YEAR
+from src.config import TRADING_DAYS_PER_YEAR, NOTIONAL_CAPITAL
 
 
 # ════════════════════════════════════════════════════════════
@@ -89,22 +89,25 @@ def compute_drawdown(daily_returns):
     dict with keys:
         drawdown_series : pd.Series (percentage drawdown from peak)
         max_drawdown    : float (worst drawdown, negative number)
-        max_dd_start    : date when drawdown period began
-        max_dd_end      : date when max drawdown was reached
+        max_dd_start    : date/index when the peak before max DD occurred
+        max_dd_end      : date/index when max drawdown was reached
     """
     cum = (1 + daily_returns).cumprod()
     peak = cum.cummax()
-    dd = (cum - peak) / peak
+    # Guard against peak == 0 (e.g. if cumulative return hits zero)
+    dd = np.where(peak > 1e-12, (cum - peak) / peak, 0.0)
+    dd = pd.Series(dd, index=daily_returns.index)
 
     max_dd = dd.min()
     max_dd_end = dd.idxmin()
 
-    # Find the start of the drawdown period
-    peak_before = cum.loc[:max_dd_end].idxmax() if hasattr(dd.index, 'get_loc') else 0
+    # Start of the drawdown = most recent peak before the trough
+    max_dd_start = cum.loc[:max_dd_end].idxmax()
 
     return {
         "drawdown_series": dd,
         "max_drawdown": max_dd,
+        "max_dd_start": max_dd_start,
         "max_dd_end": max_dd_end,
     }
 
@@ -149,6 +152,173 @@ def return_statistics(daily_returns):
     }
 
 
+def higher_moments_with_significance(daily_returns):
+    """
+    Higher moments (skewness, kurtosis) with standard errors and significance
+    tests at the 5% level.
+
+    Pandas ``.kurtosis()`` returns *excess* kurtosis (Fisher definition:
+    0 for normal).  Fat tails = excess kurtosis *significantly* > 0, i.e.
+    excess_kurtosis > 1.96 * SE(kurtosis).
+
+    Returns
+    -------
+    dict with keys: skewness, kurtosis, excess_kurtosis,
+                    skew_se, kurt_se, skew_significant, fat_tails
+    """
+    r = pd.Series(daily_returns).dropna()
+    n = len(r)
+    if n < 3:
+        return {k: np.nan for k in [
+            "skewness", "kurtosis", "excess_kurtosis",
+            "skew_se", "kurt_se", "skew_significant", "fat_tails",
+        ]}
+    skew = r.skew()
+    kurt = r.kurtosis()  # pandas: Fisher definition, 0 for normal
+    excess_kurt = kurt  # already excess
+
+    skew_se = np.sqrt(6.0 / n)
+    kurt_se = np.sqrt(24.0 / n)
+
+    skew_significant = bool(abs(skew) > 1.96 * skew_se)
+    fat_tails = bool(excess_kurt > 0 and excess_kurt > 1.96 * kurt_se)
+
+    return {
+        "skewness": skew,
+        "kurtosis": kurt,
+        "excess_kurtosis": excess_kurt,
+        "skew_se": skew_se,
+        "kurt_se": kurt_se,
+        "skew_significant": skew_significant,
+        "fat_tails": fat_tails,
+    }
+
+
+def probabilistic_sharpe_ratio(daily_returns, sr_ref=0.0):
+    """
+    Probabilistic Sharpe Ratio (PSR): probability that true SR > sr_ref.
+
+    Following Bailey & López de Prado (2012). PSR(SR*) = Prob(SR > SR*).
+    Uses skewness and kurtosis to adjust the standard error of the Sharpe ratio.
+
+    Parameters
+    ----------
+    daily_returns : pd.Series or np.ndarray
+    sr_ref : float
+        Reference Sharpe ratio (e.g. 0 for "probability that SR > 0").
+
+    Returns
+    -------
+    float
+        PSR in [0, 1].
+    """
+    from scipy import stats
+    r = pd.Series(daily_returns).dropna()
+    n = len(r)
+    if n < 2:
+        return np.nan
+
+    mu = r.mean()
+    sigma = r.std()
+    if sigma == 0:
+        return 1.0 if (mu > 0 and sr_ref <= 0) else 0.0
+
+    # Annualised Sharpe (risk-free = 0)
+    sr = (mu / sigma) * np.sqrt(TRADING_DAYS_PER_YEAR)
+
+    skew = r.skew()
+    kurt = r.kurtosis()  # excess kurtosis in pandas
+
+    # Standard error of Sharpe under non-normality (López de Prado)
+    term = 1.0 - skew * sr / np.sqrt(TRADING_DAYS_PER_YEAR) + (kurt - 1) / 4 * (sr ** 2) / TRADING_DAYS_PER_YEAR
+    if term <= 0:
+        term = 1e-10
+    se_sr = np.sqrt(term / (n - 1))
+
+    if se_sr <= 0:
+        return 1.0 if sr > sr_ref else 0.0
+    z = (sr - sr_ref) / se_sr
+    return float(stats.norm.cdf(z))
+
+
+# ════════════════════════════════════════════════════════════
+# 3b. BENCHMARK (BUY-AND-HOLD SPX / SPY PROXY)
+# ════════════════════════════════════════════════════════════
+
+def benchmark_returns_from_spx(spx_df, start_date, end_date):
+    """
+    Get daily returns for buy-and-hold SPX over [start_date, end_date].
+
+    SPX is used as proxy for SPY (they track closely). Aligns to strategy dates.
+
+    Parameters
+    ----------
+    spx_df : pd.DataFrame
+        Columns: date, spx_close.
+    start_date, end_date : datetime-like
+
+    Returns
+    -------
+    pd.Series
+        Daily log return; index = date.
+    """
+    spx = spx_df[["date", "spx_close"]].copy()
+    spx["date"] = pd.to_datetime(spx["date"]).dt.normalize()
+    spx = spx.sort_values("date").drop_duplicates("date")
+    spx = spx[(spx["date"] >= pd.Timestamp(start_date)) & (spx["date"] <= pd.Timestamp(end_date))]
+    spx["return"] = spx["spx_close"].pct_change()  # simple return for comparability with strategy
+    spx = spx.dropna(subset=["return"])
+    return spx.set_index("date")["return"]
+
+
+def benchmark_comparison(strategy_daily_returns, benchmark_daily_returns):
+    """
+    Compare strategy to buy-and-hold benchmark (e.g. SPX).
+
+    Strategy returns are reindexed to the benchmark calendar: on days
+    with no strategy trade, return = 0 (flat, capital parked). This
+    ensures benchmark stats cover the full sample, not just strategy days.
+
+    Returns
+    -------
+    dict with keys: benchmark_sharpe, benchmark_ann_return, benchmark_max_dd,
+                   strategy_sharpe, strategy_ann_return, strategy_max_dd,
+                   correlation, beta, alpha (annualised), information_ratio
+    """
+    b_ret = benchmark_daily_returns.dropna()
+    if b_ret.empty:
+        return {}
+
+    # Reindex strategy to benchmark calendar; fill missing days with 0 (flat)
+    s_ret = strategy_daily_returns.reindex(b_ret.index, fill_value=0.0)
+
+    cov = np.cov(s_ret, b_ret)
+    var_b = cov[1, 1]
+    beta = cov[0, 1] / var_b if var_b != 0 else np.nan
+    ann_rf = 0.0
+    sr_s = sharpe_ratio(s_ret, risk_free_annual=ann_rf)
+    sr_b = sharpe_ratio(b_ret, risk_free_annual=ann_rf)
+    ann_s = annualised_return(s_ret)
+    ann_b = annualised_return(b_ret)
+    alpha_ann = ann_s - (ann_rf + beta * (ann_b - ann_rf)) if not np.isnan(beta) else np.nan
+    diff = s_ret - b_ret
+    te = annualised_volatility(diff)
+    ir = (ann_s - ann_b) / te if te and te > 0 else np.nan
+
+    return {
+        "benchmark_sharpe": sr_b,
+        "benchmark_ann_return": ann_b,
+        "benchmark_max_dd": compute_drawdown(b_ret)["max_drawdown"],
+        "strategy_sharpe": sr_s,
+        "strategy_ann_return": ann_s,
+        "strategy_max_dd": compute_drawdown(s_ret)["max_drawdown"],
+        "correlation": s_ret.corr(b_ret),
+        "beta": beta,
+        "alpha_ann": alpha_ann,
+        "information_ratio": ir,
+    }
+
+
 # ════════════════════════════════════════════════════════════
 # 4.  TRADE-LEVEL METRICS
 # ════════════════════════════════════════════════════════════
@@ -156,6 +326,9 @@ def return_statistics(daily_returns):
 def trade_statistics(trades_df):
     """
     Compute trade-level statistics from the trades DataFrame.
+
+    Includes: win rate, PnL stats, holding period, trading frequency,
+    gain per trade (avg, median, std), and capacity-related fields.
 
     Parameters
     ----------
@@ -172,12 +345,38 @@ def trade_statistics(trades_df):
     pnl = trades_df["net_pnl"]
     winners = pnl[pnl > 0]
     losers = pnl[pnl <= 0]
+    holding = trades_df["holding_days"]
+
+    n = len(trades_df)
+    # Trading frequency: trades per year (use span of trades if available)
+    trades_per_year = np.nan
+    if "entry_date" in trades_df.columns and "exit_date" in trades_df.columns and n >= 1:
+        try:
+            entry_dates = pd.to_datetime(trades_df["entry_date"]).dropna()
+            exit_dates = pd.to_datetime(trades_df["exit_date"]).dropna()
+            if len(entry_dates) > 0 and len(exit_dates) > 0:
+                span = exit_dates.max() - entry_dates.min()
+                span_days = span.days if hasattr(span, "days") else float(span / np.timedelta64(1, "D"))
+                span_years = max(span_days / 365.25, 1 / 365.25)
+                trades_per_year = n / span_years
+        except Exception:
+            trades_per_year = np.nan
+
+    # Guard against NaN in holding_days
+    holding_clean = holding.dropna()
+    avg_hold = holding_clean.mean() if len(holding_clean) > 0 else np.nan
+    med_hold = holding_clean.median() if len(holding_clean) > 0 else np.nan
+    min_hold = holding_clean.min() if len(holding_clean) > 0 else np.nan
+    max_hold = holding_clean.max() if len(holding_clean) > 0 else np.nan
+
+    iv_rv_mean = trades_df["iv_rv_spread"].mean() if "iv_rv_spread" in trades_df.columns else np.nan
 
     return {
-        "n_trades": len(trades_df),
-        "win_rate": len(winners) / len(trades_df),
+        "n_trades": n,
+        "win_rate": len(winners) / n,
         "avg_pnl": pnl.mean(),
         "median_pnl": pnl.median(),
+        "std_pnl": pnl.std(),
         "total_pnl": pnl.sum(),
         "avg_winner": winners.mean() if len(winners) > 0 else 0,
         "avg_loser": losers.mean() if len(losers) > 0 else 0,
@@ -187,8 +386,46 @@ def trade_statistics(trades_df):
         ),
         "max_win": pnl.max(),
         "max_loss": pnl.min(),
-        "avg_holding_days": trades_df["holding_days"].mean(),
-        "avg_iv_rv_spread": trades_df["iv_rv_spread"].mean(),
+        "avg_holding_days": avg_hold,
+        "median_holding_days": med_hold,
+        "min_holding_days": min_hold,
+        "max_holding_days": max_hold,
+        "trades_per_year": trades_per_year,
+        "avg_iv_rv_spread": iv_rv_mean,
+    }
+
+
+def capacity_estimate(trades_df, notional_per_trade, adv_billions=50.0, pct_adv_max=0.01):
+    """
+    Illustrative capacity estimate: how much can we deploy without moving markets.
+
+    This is an order-of-magnitude estimate, NOT data-driven. It assumes a
+    fixed SPX options ADV and a maximum participation rate. For a real
+    capacity study, use actual ADV from options volume data.
+
+    Parameters
+    ----------
+    trades_df : pd.DataFrame
+    notional_per_trade : float
+        Typical notional per trade (e.g. from backtest config).
+    adv_billions : float
+        Assumed SPX options ADV in billions (order of magnitude, default 50).
+    pct_adv_max : float
+        Max fraction of ADV we allow (e.g. 0.01 = 1%).
+
+    Returns
+    -------
+    dict with keys: capacity_usd, capacity_billions, scale_factor, note
+    """
+    capacity_usd = adv_billions * 1e9 * pct_adv_max
+    capacity_billions = capacity_usd / 1e9
+    scale_factor = capacity_usd / notional_per_trade if notional_per_trade and notional_per_trade > 0 else np.nan
+    return {
+        "capacity_usd": capacity_usd,
+        "capacity_billions": capacity_billions,
+        "scale_factor": scale_factor,
+        "note": (f"Illustrative: assumes SPX options ADV ~${adv_billions:.0f}B; "
+                 f"deploy up to {pct_adv_max:.1%} of ADV. Not data-driven."),
     }
 
 
@@ -196,7 +433,7 @@ def trade_statistics(trades_df):
 # 5.  FULL PERFORMANCE REPORT
 # ════════════════════════════════════════════════════════════
 
-def full_performance_report(daily_pnl_df, trades_df):
+def full_performance_report(daily_pnl_df, trades_df, spx_df=None, notional=NOTIONAL_CAPITAL):
     """
     Generate a comprehensive performance report.
 
@@ -206,13 +443,38 @@ def full_performance_report(daily_pnl_df, trades_df):
         From run_backtest(), columns: date, daily_return, …
     trades_df : pd.DataFrame
         From trades_to_dataframe().
+    spx_df : pd.DataFrame, optional
+        SPX price series (date, spx_close) for buy-and-hold benchmark.
+    notional : float
+        Notional per trade for capacity estimate.
 
     Returns
     -------
     dict
-        Nested dictionary of all metrics.
+        Nested dictionary of all metrics. If daily_return is empty or has
+        fewer than 2 observations, return metrics and drawdown use NaN/0
+        and a short notice is printed.
     """
     dr = daily_pnl_df["daily_return"].dropna()
+    if dr.empty or len(dr) < 2:
+        report = {
+            "return_metrics": {
+                "annualised_return": np.nan,
+                "annualised_volatility": np.nan,
+                "sharpe_ratio": np.nan,
+                "sortino_ratio": np.nan,
+                "calmar_ratio": np.nan,
+            },
+            "drawdown": {"drawdown_series": dr, "max_drawdown": 0.0, "max_dd_start": None, "max_dd_end": None},
+            "distribution": return_statistics(dr) if len(dr) > 0 else {},
+            "trade_stats": trade_statistics(trades_df),
+            "higher_moments": higher_moments_with_significance(dr),
+            "probabilistic_sharpe_ratio": np.nan,
+            "benchmark": {},
+            "capacity": capacity_estimate(trades_df, notional),
+        }
+        print("\n  [performance] Insufficient daily returns (need ≥2); report uses defaults for return metrics.")
+        return report
 
     report = {
         "return_metrics": {
@@ -225,7 +487,24 @@ def full_performance_report(daily_pnl_df, trades_df):
         "drawdown": compute_drawdown(dr),
         "distribution": return_statistics(dr),
         "trade_stats": trade_statistics(trades_df),
+        "higher_moments": higher_moments_with_significance(dr),
+        "probabilistic_sharpe_ratio": probabilistic_sharpe_ratio(dr, sr_ref=0.0),
+        "benchmark": {},
+        "capacity": capacity_estimate(trades_df, notional),
     }
+
+    # Strategy returns as Series with date index for benchmark alignment
+    if "date" in daily_pnl_df.columns:
+        strat_ret = daily_pnl_df.set_index("date")["daily_return"].dropna()
+    else:
+        strat_ret = dr
+
+    if spx_df is not None and len(strat_ret) > 0:
+        start_date = strat_ret.index.min()
+        end_date = strat_ret.index.max()
+        bench_ret = benchmark_returns_from_spx(spx_df, start_date, end_date)
+        if len(bench_ret) > 0:
+            report["benchmark"] = benchmark_comparison(strat_ret, bench_ret)
 
     # Pretty-print summary
     print("\n" + "=" * 60)
@@ -240,19 +519,54 @@ def full_performance_report(daily_pnl_df, trades_df):
     print(f"  Calmar Ratio:          {rm['calmar_ratio']:>10.2f}")
     print(f"  Max Drawdown:          {report['drawdown']['max_drawdown']:>10.2%}")
 
+    # Probabilistic Sharpe Ratio
+    psr = report["probabilistic_sharpe_ratio"]
+    print(f"  Prob. Sharpe (SR>0):   {psr:>10.2%}")
+
     ts = report["trade_stats"]
     if ts["n_trades"] > 0:
-        print(f"\n  Trades:   {ts['n_trades']}")
-        print(f"  Win Rate: {ts['win_rate']:.1%}")
-        print(f"  Avg PnL:  ${ts['avg_pnl']:,.2f}")
-        print(f"  Total PnL: ${ts['total_pnl']:,.2f}")
+        print(f"\n  --- Trades ---")
+        print(f"  Trades:        {ts['n_trades']}")
+        print(f"  Trades/year:   {ts.get('trades_per_year', np.nan):.1f}")
+        print(f"  Win Rate:      {ts['win_rate']:.1%}")
+        print(f"  Avg PnL:       ${ts['avg_pnl']:,.2f}  (gain per trade)")
+        print(f"  Median PnL:    ${ts['median_pnl']:,.2f}")
+        print(f"  Total PnL:     ${ts['total_pnl']:,.2f}")
         print(f"  Profit Factor: {ts['profit_factor']:.2f}")
+        print(f"  Avg holding:   {ts.get('avg_holding_days', np.nan):.1f} days  "
+              f"(min={ts.get('min_holding_days', np.nan):.0f}, max={ts.get('max_holding_days', np.nan):.0f})")
+
+    # Higher moments
+    hm = report["higher_moments"]
+    print(f"\n  --- Higher moments ---")
+    print(f"  Skewness:      {hm['skewness']:.3f}  (SE={hm['skew_se']:.3f})  "
+          f"Significant: {hm['skew_significant']}")
+    print(f"  Kurtosis:      {hm['kurtosis']:.3f}  (excess={hm['excess_kurtosis']:.3f})  "
+          f"Fat tails:   {hm['fat_tails']}")
 
     ds = report["distribution"]
-    print(f"\n  Skewness:  {ds['skewness']:.3f}")
-    print(f"  Kurtosis:  {ds['kurtosis']:.3f}")
-    print(f"  VaR (95%): {ds['var_95']:.4f}")
-    print(f"  CVaR(95%): {ds['cvar_95']:.4f}")
+    print(f"  VaR (95%):    {ds['var_95']:.4f}")
+    print(f"  CVaR(95%):    {ds['cvar_95']:.4f}")
+
+    # Benchmark
+    if report["benchmark"]:
+        b = report["benchmark"]
+        print(f"\n  --- Benchmark (buy-and-hold SPX) ---")
+        print(f"  Benchmark Sharpe:   {b['benchmark_sharpe']:.2f}")
+        print(f"  Benchmark Ann Ret: {b['benchmark_ann_return']:.2%}")
+        print(f"  Benchmark Max DD:  {b['benchmark_max_dd']:.2%}")
+        print(f"  Correlation:       {b['correlation']:.3f}")
+        print(f"  Beta:              {b['beta']:.3f}")
+        print(f"  Alpha (ann):       {b['alpha_ann']:.2%}")
+        print(f"  Info Ratio:        {b['information_ratio']:.3f}")
+
+    # Capacity
+    cap = report["capacity"]
+    print(f"\n  --- Capacity ---")
+    print(f"  {cap['note']}")
+    print(f"  Capacity:      ${cap['capacity_usd']/1e6:.1f}M ({cap['capacity_billions']:.2f}B)")
+    print(f"  Scale factor: {cap['scale_factor']:.0f}x vs ${notional/1e6:.1f}M/trade")
+
     print("=" * 60)
 
     return report

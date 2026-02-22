@@ -158,7 +158,7 @@ def stage6_performance(trades_df, pnl_df, signals, data):
     param_df = pd.DataFrame()
 
     if not pnl_df.empty and len(pnl_df) > 10:
-        report = full_performance_report(pnl_df, trades_df)
+        report = full_performance_report(pnl_df, trades_df, spx_df=data.get("spx"))
 
         # Sub-period analysis
         n_periods = min(4, max(2, len(pnl_df) // 50))
@@ -240,12 +240,13 @@ def stage8_export(data, features, signals, trades_df, pnl_df, report):
     signals.to_csv(DATA_OUTPUT_DIR / "signal_table.csv", index=False)
     print(f"  Saved signal_table.csv ({len(signals)} rows)")
 
-    # Trades
+    # Trades and trade log (all buys/sells with entry/exit prices and PnL)
     if not trades_df.empty:
         trades_df.to_csv(DATA_OUTPUT_DIR / "trades.csv", index=False)
-        print(f"  Saved trades.csv ({len(trades_df)} trades)")
+        trades_df.to_csv(DATA_OUTPUT_DIR / "trade_log.csv", index=False)
+        print(f"  Saved trades.csv and trade_log.csv ({len(trades_df)} trades)")
 
-    # Daily PnL
+    # Daily PnL = sum(PnL) per calendar day
     if not pnl_df.empty:
         pnl_df.to_csv(DATA_OUTPUT_DIR / "daily_pnl.csv", index=False)
         print(f"  Saved daily_pnl.csv ({len(pnl_df)} days)")
@@ -259,22 +260,48 @@ def stage8_export(data, features, signals, trades_df, pnl_df, report):
 
             f.write("RETURN METRICS\n")
             for k, v in report.get("return_metrics", {}).items():
-                f.write(f"  {k:30s}: {v:.4f}\n")
+                s = f"{v:.4f}" if not (isinstance(v, float) and np.isnan(v)) else "N/A"
+                f.write(f"  {k:30s}: {s}\n")
+            psr = report.get("probabilistic_sharpe_ratio")
+            if psr is not None and not (isinstance(psr, float) and np.isnan(psr)):
+                f.write(f"  {'probabilistic_sharpe_ratio (SR>0)':30s}: {psr:.4f}\n")
 
             f.write("\nDRAWDOWN\n")
             dd = report.get("drawdown", {})
             f.write(f"  {'max_drawdown':30s}: {dd.get('max_drawdown', 0):.4f}\n")
 
-            f.write("\nDISTRIBUTION\n")
+            f.write("\nDISTRIBUTION & HIGHER MOMENTS\n")
             for k, v in report.get("distribution", {}).items():
                 f.write(f"  {k:30s}: {v:.6f}\n")
+            hm = report.get("higher_moments", {})
+            if hm:
+                f.write(f"  {'skew_se':30s}: {hm.get('skew_se', 0):.6f}\n")
+                f.write(f"  {'skew_significant':30s}: {hm.get('skew_significant', False)}\n")
+                f.write(f"  {'fat_tails':30s}: {hm.get('fat_tails', False)}\n")
 
-            f.write("\nTRADE STATISTICS\n")
+            f.write("\nTRADE STATISTICS (gain per trade, holding period, frequency)\n")
             for k, v in report.get("trade_stats", {}).items():
                 if isinstance(v, float):
                     f.write(f"  {k:30s}: {v:.4f}\n")
                 else:
                     f.write(f"  {k:30s}: {v}\n")
+
+            b = report.get("benchmark", {})
+            if b:
+                f.write("\nBENCHMARK (buy-and-hold SPX)\n")
+                for k, v in b.items():
+                    if isinstance(v, float):
+                        f.write(f"  {k:30s}: {v:.4f}\n")
+                    else:
+                        f.write(f"  {k:30s}: {v}\n")
+
+            cap = report.get("capacity", {})
+            if cap:
+                f.write("\nCAPACITY\n")
+                f.write(f"  {cap.get('note', '')}\n")
+                f.write(f"  {'capacity_usd':30s}: {cap.get('capacity_usd', 0):.0f}\n")
+                sf = cap.get("scale_factor", np.nan)
+                f.write(f"  {'scale_factor':30s}: {sf:.0f}\n" if not (isinstance(sf, float) and np.isnan(sf)) else f"  {'scale_factor':30s}: N/A\n")
 
         print(f"  Saved performance_report.txt")
 
