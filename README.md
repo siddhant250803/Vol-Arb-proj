@@ -102,7 +102,7 @@ All outputs are saved to `output/`:
 The pipeline runs 8 stages sequentially:
 
 ### Stage 1 — Data Loading & Cleaning
-- Loads OptionMetrics SPX weekly options (114K rows)
+- Loads OptionMetrics SPX weekly options (millions of rows over 2005--2023)
 - Loads Treasury yield panel (16K days, 1-360 month maturities)
 - Applies quality filters: min bid ($0.05), max spread (100%), DTE (7-60 days),
   moneyness band (±20%)
@@ -174,17 +174,22 @@ The pipeline runs 8 stages sequentially:
 
 | Metric | Value |
 |--------|-------|
-| Annualised Return | 15.5% |
-| Annualised Volatility | 1.6% |
-| Sharpe Ratio | 9.5 |
-| Win Rate | 85.7% |
-| Max Drawdown | -3.3% |
-| Profit Factor | 5.55 |
-| Number of Trades | 7 |
+| Annualised Return | 165.2% |
+| Annualised Volatility | 31.4% |
+| Sharpe Ratio | 5.26 |
+| Sortino Ratio | 6.46 |
+| Calmar Ratio | 2.08 |
+| Win Rate | 50.5% |
+| Total Net PnL | \$7.63M |
+| Average Trade PnL | \$81,991 |
+| Max Drawdown | $-$79.4% |
+| Profit Factor | 1.87 |
+| Number of Trades | 93 |
+| Trades/Year | 8.0 |
 
-**Parameter sensitivity** shows the strategy is robust across holding periods
-(15-30 days) and transaction cost assumptions (0-10 bps), with Sharpe ratios
-ranging from 9.1 to 13.1.
+**Benchmark (buy-and-hold SPX):** Sharpe 0.62, Ann. return 10.9%, Max DD $-$33.0%. Strategy alpha (ann.) 88.5%, information ratio 2.44.
+
+**Risk:** Return skewness $-$1.19, excess kurtosis 11.7; VaR (95%) $-$1.56% daily, CVaR (95%) $-$3.56% daily. Capacity (illustrative, 1% of SPX options ADV): \$500M.
 
 ---
 

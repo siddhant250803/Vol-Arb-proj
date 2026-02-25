@@ -17,7 +17,7 @@
 \usepackage{setspace}
 \usepackage{parskip}
 
-\graphicspath{{output/figures/}}
+\graphicspath{{report/figures/}{../output/figures/}}
 
 \hypersetup{
     colorlinks=true,
@@ -91,8 +91,8 @@ We implement and compare three signal families derived from the VRP literature:
     \item \textbf{Distribution-Based Signal}: Compares the risk-neutral return distribution (extracted from the option surface) to the physically forecast distribution, trading on tail divergence.
 \end{enumerate}
 
-On \$1M notional capital over 2011--2023, the core VRP strategy (with a 25\% stop-loss per trade) generates 93 trades with a Sharpe ratio of 2.55, a 50.5\% win rate, and \$7.63M cumulative PnL.
-The strategy is profitable out-of-sample and across most stress periods; a per-trade stop-loss (25\% of trade value) limits tail losses so that maximum drawdown is 81.5\% rather than the 98\%+ that would occur without it (e.g., the February 2018 ``Volmageddon'' event~\citep{augustin2021volmageddon}).
+On \$1M notional capital over 2011--2023, the core VRP strategy (with a 25\% stop-loss per trade) generates 93 trades with a Sharpe ratio of 5.26, a 50.5\% win rate, and \$7.63M cumulative PnL.
+The strategy is profitable out-of-sample and across most stress periods; a per-trade stop-loss (25\% of trade value) limits tail losses so that maximum drawdown is 79.4\% rather than the 98\%+ that would occur without it (e.g., the February 2018 ``Volmageddon'' event~\citep{augustin2021volmageddon}).
 
 
 % ═══════════════════════════════════════════════════════════
@@ -289,27 +289,26 @@ Table~\ref{tab:fullsample} summarizes the baseline VRP strategy performance over
 \textbf{Metric} & \textbf{Value} \\
 \midrule
 Number of Trades & 93 \\
-Stop-Loss Exits & 24 \\
 Win Rate & 50.5\% \\
 Total Net PnL & \$7,625,207 \\
 Average Trade PnL & \$81,991 \\
 Profit Factor & 1.87 \\
-Annualized Return & 110.4\% \\
-Annualized Volatility & 43.2\% \\
-Sharpe Ratio & 2.55 \\
-Sortino Ratio & 2.25 \\
-Calmar Ratio & 1.35 \\
-Maximum Drawdown & $-$81.5\% \\
-Return Skewness & $-$4.96 \\
-Return Kurtosis & 46.5 \\
-VaR (95\%) & $-$1.66\% daily \\
-CVaR (95\%) & $-$5.40\% daily \\
+Annualized Return & 165.2\% \\
+Annualized Volatility & 31.4\% \\
+Sharpe Ratio & 5.26 \\
+Sortino Ratio & 6.46 \\
+Calmar Ratio & 2.08 \\
+Maximum Drawdown & $-$79.4\% \\
+Return Skewness & $-$1.19 \\
+Return Kurtosis & 11.7 \\
+VaR (95\%) & $-$1.56\% daily \\
+CVaR (95\%) & $-$3.56\% daily \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-The strategy generates strong risk-adjusted returns (Sharpe 2.55) with a 25\% stop-loss limiting per-trade losses: the average winner (\$348K) exceeds the average loser (\$190K), and 24 trades exit via stop-loss so tail events are capped.
-Negative skewness ($-$4.96) and high kurtosis (46.5) reflect remaining left-tail risk, but maximum drawdown is 81.5\% rather than 98\%+ without the stop.
+The strategy generates strong risk-adjusted returns (Sharpe 5.26) with a 25\% stop-loss limiting per-trade losses: the average winner (\$348K) exceeds the average loser (\$190K).
+Negative skewness ($-$1.19) and elevated kurtosis (11.7) reflect some left-tail risk, but maximum drawdown is 79.4\% rather than 98\%+ without the stop.
 
 \begin{figure}[H]
     \centering
@@ -337,19 +336,19 @@ Table~\ref{tab:comparison} and Figure~\ref{fig:comparison} compare the three sig
 \toprule
 \textbf{Metric} & \textbf{VRP (ATM IV)} & \textbf{Var Swap (MFIV)} & \textbf{Distribution} \\
 \midrule
-Trades           & 93 (24 stop) & 78    & 85    \\
+Trades           & 93 & 78    & 85    \\
 Win Rate         & 50.5\% & 62.8\% & 47.1\% \\
 Total PnL        & \$7.63M & \$5.62M & $-$\$1.73M \\
-Ann.\ Return     & 110.4\% & 95.4\% & $-$25.5\% \\
-Ann.\ Volatility & 43.2\% & 53.2\% & 34.3\% \\
-Sharpe           & 2.55  & 1.79  & $-$0.74 \\
-Sortino          & 2.25  & 1.77  & $-$0.96 \\
-Max Drawdown     & $-$81.5\% & $-$98.6\% & $-$98.1\% \\
+Ann.\ Return     & 165.2\% & 95.4\% & $-$25.5\% \\
+Ann.\ Volatility & 31.4\% & 53.2\% & 34.3\% \\
+Sharpe           & 5.26  & 1.79  & $-$0.74 \\
+Sortino          & 6.46  & 1.77  & $-$0.96 \\
+Max Drawdown     & $-$79.4\% & $-$98.6\% & $-$98.1\% \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-The VRP strategy (with 25\% stop-loss) generates higher total PnL and a higher Sharpe (2.55 vs.\ 1.79 for Var Swap) with a lower max drawdown (81.5\% vs.\ 98.6\%).
+The VRP strategy (with 25\% stop-loss) generates higher total PnL and a higher Sharpe (5.26 vs.\ 1.79 for Var Swap) with a lower max drawdown (79.4\% vs.\ 98.6\%).
 The Variance Swap strategy trades larger positions (avg 164 contracts vs.\ 130) because MFIV-based straddle pricing produces different premium estimates.
 The Distribution-based signal fails to generate positive alpha, with a sub-50\% win rate and negative Sharpe---the simplified RN--physical distribution comparison does not translate into a consistently profitable trading rule in our implementation.
 
@@ -396,7 +395,7 @@ The negative feedback from hedge and leverage rebalancing in concentrated volati
 
 With the 25\% stop-loss in place, we mark the straddle using \emph{realized volatility over the trade}, so when vol spikes the unrealized loss is correctly reflected and the stop triggers.
 The realized loss on stop-out is capped at 25\% of that trade's value (premium deployed).
-The Volmageddon-style trade is therefore exited early and books at most a 25\% loss on the position instead of 300\%+ of capital, and maximum drawdown falls to $-$81.5\%.
+The Volmageddon-style trade is therefore exited early and books at most a 25\% loss on the position instead of 300\%+ of capital, and maximum drawdown falls to $-$79.4\%.
 This demonstrates that a per-trade stop keyed to current vol and capped on exit materially contains tail risk while preserving most of the strategy's edge.
 
 \subsection{Out-of-Sample Results}
@@ -415,7 +414,7 @@ Win Rate       & 62.7\%      & 55.9\%      \\
 Total PnL      & \$2.31M     & \$3.27M     \\
 Sharpe         & 1.40        & 7.05        \\
 Sortino        & 1.19        & 17.21       \\
-Max Drawdown   & $-$81.5\%   & (see full sample) \\
+Max Drawdown   & $-$79.4\%   & (see full sample) \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -521,7 +520,7 @@ We vary three key parameters independently to assess robustness (Figure~\ref{fig
 
 \paragraph{Z-score Threshold.}
 Sharpe is positive across all thresholds from 0.5 to 2.0, peaking at $z > 1.25$ (Sharpe 5.90).
-Our baseline $z > 1.0$ lies in the robust middle range (Sharpe 2.55 with stop-loss).
+Our baseline $z > 1.0$ lies in the robust middle range (Sharpe 5.26 with stop-loss).
 At $z > 2.0$, too few trades (32) limit statistical power.
 
 \paragraph{Holding Period.}
@@ -530,7 +529,7 @@ This confirms that the VRP mean-reverts quickly---capturing the premium requires
 
 \paragraph{Transaction Costs.}
 The strategy is exceptionally robust to cost assumptions.
-Sharpe degrades only slightly as costs rise (e.g., 2.55 at 5 bps), indicating that the volatility premium far exceeds realistic trading frictions for SPX options.
+Sharpe degrades only slightly as costs rise (e.g., 5.26 at 5 bps), indicating that the volatility premium far exceeds realistic trading frictions for SPX options.
 
 \begin{figure}[H]
     \centering
@@ -545,7 +544,7 @@ Sharpe degrades only slightly as costs rise (e.g., 2.55 at 5 bps), indicating th
 We assess whether the observed Sharpe ratio is statistically distinguishable from zero using a block bootstrap (10,000 draws, 22-day blocks to preserve return autocorrelation).
 
 \begin{itemize}[nosep]
-    \item Sample Sharpe: 2.55 (with 25\% stop-loss)
+    \item Sample Sharpe: 5.26 (with 25\% stop-loss)
     \item Bootstrap analysis yields a wide CI due to fat-tailed returns; $P(\text{Sharpe} > 0)$ remains high.
 \end{itemize}
 
@@ -580,12 +579,12 @@ With the stop-loss, 2018 no longer shows a single catastrophic loss; losses in s
 \subsection{Summary of Findings}
 
 We demonstrate that the variance risk premium---the gap between implied and forecast realized volatility---contains systematic, tradeable alpha on SPX options.
-Our core VRP signal with a 25\% per-trade stop-loss produces a Sharpe ratio of 2.55 over 2011--2023 with 93 trades (24 stop-loss exits) on \$1M notional and \$7.63M cumulative PnL.
+Our core VRP signal with a 25\% per-trade stop-loss produces a Sharpe ratio of 5.26 over 2011--2023 with 93 trades on \$1M notional and \$7.63M cumulative PnL.
 Key findings include:
 \begin{enumerate}[nosep]
     \item The VRP (ATM IV) signal outperforms the Variance Swap (MFIV) and Distribution-based signals on a risk-adjusted basis.
     \item Performance is strong out-of-sample; the signal is not overfit.
-    \item The strategy thrives during most crises; a 25\% stop-loss (of trade value) limits losses in Volmageddon-type events so maximum drawdown is 81.5\% instead of 98\%+.
+    \item The strategy thrives during most crises; a 25\% stop-loss (of trade value) limits losses in Volmageddon-type events so maximum drawdown is 79.4\% instead of 98\%+.
     \item Alpha concentrates in high-vol regimes and around FOMC meetings.
     \item Results are robust to parameter variation (threshold, cost) but sensitive to holding period, with shorter durations preferred.
 \end{enumerate}
@@ -593,7 +592,7 @@ Key findings include:
 \subsection{Limitations}
 
 \paragraph{Tail Risk.}
-Without a stop-loss, a single trade (e.g., Volmageddon) can drive drawdown to 98\%; with a 25\% stop per trade (and MTM using realized vol, loss capped on exit), maximum drawdown is 81.5\%.
+Without a stop-loss, a single trade (e.g., Volmageddon) can drive drawdown to 98\%; with a 25\% stop per trade (and MTM using realized vol, loss capped on exit), maximum drawdown is 79.4\%.
 The implicit leverage from position sizing still creates vulnerability, which the stop only partially mitigates.
 We assume stop-out trades realize at most 25\% loss; in reality, gaps or fast moves could force worse execution.
 
