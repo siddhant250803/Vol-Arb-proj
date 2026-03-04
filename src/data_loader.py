@@ -16,6 +16,7 @@ All heavy I/O lives here; downstream modules receive clean DataFrames.
 
 import numpy as np
 import pandas as pd
+from pathlib import Path
 
 from src.config import (
     OPTIONS_FILE,
@@ -56,6 +57,10 @@ def load_options_raw(filepath=None, nrows=None):
         Raw options data with date columns parsed.
     """
     filepath = filepath or OPTIONS_FILE
+    if not Path(filepath).exists():
+        gz_path = Path(f"{filepath}.gz")
+        if gz_path.exists():
+            filepath = gz_path
     print(f"[data_loader] Loading options from {filepath.name} ...")
 
     # Only load the columns we need (saves memory on 5M+ row files)
