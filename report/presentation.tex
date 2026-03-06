@@ -40,16 +40,34 @@
   \vspace{0.2em}
 }
 
+% Footer: smaller font and constrained width to prevent overflow
+\setbeamertemplate{footline}{
+  \leavevmode%
+  \hbox{%
+  \begin{beamercolorbox}[wd=0.28\paperwidth,ht=2.25ex,dp=1ex,left,leftskip=0.5cm]{author in head/foot}%
+    \raggedright\tiny\insertshortauthor
+  \end{beamercolorbox}%
+  \begin{beamercolorbox}[wd=0.44\paperwidth,ht=2.25ex,dp=1ex,center]{title in head/foot}%
+    \centering\tiny\parbox{0.42\paperwidth}{\centering\insertsectionhead}
+  \end{beamercolorbox}%
+  \begin{beamercolorbox}[wd=0.28\paperwidth,ht=2.25ex,dp=1ex,right,rightskip=0.5cm]{date in head/foot}%
+    \raggedleft\tiny\insertshortdate\hspace*{0.5em}\insertframenumber/\inserttotalframenumber
+  \end{beamercolorbox}}%
+  \vskip0pt%
+}
+
 \usepackage{booktabs}
 \usepackage{amsmath}
 \usepackage{multicol}
 \usepackage{adjustbox}
+\usepackage{tikz}
+\usetikzlibrary{shapes.geometric,arrows.meta,positioning}
 
 \title{Volatility Arbitrage via the Variance Risk Premium}
 \subtitle{Trading the IV--Forecast RV Spread on SPX Options}
-\author{Group 4 \\ MS\&E 244: Statistical Arbitrage}
-\institute{Stanford University}
-\date{Winter 2026}
+\author[Group 4]{Group 4 \\ MS\&E 244: Statistical Arbitrage}
+\institute[Stanford]{Stanford University}
+\date[W2026]{Winter 2026}
 
 \begin{document}
 
@@ -149,6 +167,60 @@
 \end{frame}
 
 % ═══════════════════════════════════════════════════════════
+\section{Logistic Regression (RV Forecast)}
+% ═══════════════════════════════════════════════════════════
+
+\begin{frame}{Logistic Regression: Methodology}
+  \centering
+  \begin{adjustbox}{max width=\textwidth,max height=0.52\textheight,keepaspectratio}
+  \begin{tikzpicture}[
+    node distance=0.5cm and 0.8cm,
+    every node/.style={font=\scriptsize},
+    box/.style={rectangle, draw=color700, fill=color50, rounded corners, minimum height=0.5cm, minimum width=1.8cm, align=center},
+    arrow/.style={-{Stealth[length=2mm]}, color700, thick}
+    ]
+    \node[box] (A) {Feature table\\ (log returns, dates)};
+    \node[box, right=of A] (B) {Build features:\\ lags, rolling, calendar};
+    \node[box, right=of B] (C) {Weekly Friday\\ target $z = R/\sqrt{h}$};
+    \node[box, right=of C] (D) {Quantile buckets\\ ($K$ classes)};
+    \node[box, below=1.2cm of D] (E) {Fit $K$ balanced\\ logistic regressions};
+    \node[box, left=of E] (F) {Bucket probabilities\\ $\hat{p}_1,\ldots,\hat{p}_K$};
+    \node[box, left=of F] (G) {Expected RV\\ $252\cdot E[z^2]$};
+    \draw[arrow] (A) -- (B);
+    \draw[arrow] (B) -- (C);
+    \draw[arrow] (C) -- (D);
+    \draw[arrow] (D) -- (E);
+    \draw[arrow] (E) -- (F);
+    \draw[arrow] (F) -- (G);
+  \end{tikzpicture}
+  \end{adjustbox}\\
+  \vspace{0.3em}
+  \scriptsize \centering Workflow: predict distribution of weekly (Friday-expiry) returns; convert to expected realised variance and use as RV forecast in IV--RV signal. \\
+  \footnotesize
+  \vspace{0.2em}
+  Target: cumulative log return to Friday, scaled by $\sqrt{\text{days\_to\_Friday}}$ for comparable horizon. One classifier per quantile (balanced class weights); probabilities normalized to sum to 1; $E[z^2] = \sum_k \hat{p}_k \cdot (\text{median}_k)^2$.
+\end{frame}
+
+\begin{frame}{Logistic Regression: Models \& Features}
+  \textbf{Features (inputs)}
+  \begin{itemize}
+    \item \textbf{Lagged returns:} $\log$-return at lags 1, 2, 3, 5, 10, 22; absolute lags (volatility proxy).
+    \item \textbf{Rolling:} 5d and 22d rolling mean, std, and mean of $|r|$ (lagged by 1 to avoid look-ahead).
+    \item \textbf{Calendar:} weekday, days\_to\_Friday (horizon for weekly expiry).
+  \end{itemize}
+  \vspace{0.4em}
+  \textbf{Models}
+  \begin{itemize}
+    \item \textbf{Target:} Forward return to Friday expiry, standardized $z = R_{\text{cum}}/\sqrt{h}$; bucketed into $K$ quantiles (e.g.\ $K=4$ or $5$).
+    \item \textbf{One-vs-rest:} $K$ binary logistic regressions (one per bucket), \texttt{class\_weight='balanced'}, StandardScaler + LBFGS.
+    \item \textbf{Output:} Predicted probability per bucket $\to$ $E[z^2] \to$ annualized expected realised variance/volatility; used as RV forecast in same IV--RV (VRP) signal and backtest.
+  \end{itemize}
+  \vspace{0.3em}
+  \footnotesize
+  Out-of-sample: expanding window (e.g.\ 252-day train), refit each period; same entry/exit rules as main VRP strategy.
+\end{frame}
+
+% ═══════════════════════════════════════════════════════════
 \section{Backtest Performance}
 % ═══════════════════════════════════════════════════════════
 
@@ -220,6 +292,26 @@
   \scriptsize \centering VRP vs Var Swap vs Distribution: PnL, Sharpe, drawdowns. \\
   \footnotesize
   \textbf{VRP dominates:} VRP: 93 trades, Sharpe 5.26, \$7.63M, max DD $-$79.4\%; Var Swap: 78 trades, Sharpe 1.79, \$5.62M, max DD $-$98.6\%; Distribution: 85 trades, Sharpe $-$0.74, $-$1.73M. 25\% stop limits drawdown for VRP vs Var Swap.
+\end{frame}
+
+\begin{frame}{Results Comparison: All Strategies}
+  \centering
+  \scriptsize
+  \begin{tabular}{@{}lrrrrr@{}}
+    \toprule
+    \textbf{Strategy} & \textbf{Trades} & \textbf{Win Rate} & \textbf{Sharpe} & \textbf{Total PnL} & \textbf{Max DD} \\
+    \midrule
+    VRP (ATM IV, composite RV) & 93 & 50.5\% & 5.26 & \$7.63M & $-$79.4\% \\
+    Var Swap (MFIV) & 78 & 62.8\% & 1.79 & \$5.62M & $-$98.6\% \\
+    Distribution & 85 & 47.1\% & $-$0.74 & $-$1.73M & $-$98.1\% \\
+    Logistic (OOS RV forecast) & 91 & 48.4\% & 5.31 & \$8.13M & $-$60.9\% \\
+    \bottomrule
+  \end{tabular}
+  \vspace{0.5em}
+  \normalsize
+  \raggedright
+  \footnotesize
+  Same backtest: delta-hedged straddles, \$1M notional, 22d hold, 25\% stop, 5\,bps cost. Logistic: expanding-window quantile RV forecast.
 \end{frame}
 
 \begin{frame}{FOMC Window Analysis}
@@ -308,6 +400,7 @@
     \item VRP (IV $-$ forecast RV) is \textbf{tradeable} on SPX with delta-hedged straddles.
     \item Sharpe 5.26, \$7.63M PnL (93 trades), 25\% stop $\Rightarrow$ max DD $-$79.4\% (vs 98\%+ without).
     \item VRP dominates Var Swap and Distribution; strong OOS and in stress; regime-dependent (high-vol best).
+    \item \textbf{Logistic regression:} alternative RV forecast (weekly return quantiles $\to$ $E[z^2]$ $\to$ expected vol); same IV--RV signal and backtest; methodology in slides.
     \item Robust to threshold and costs; sensitive to holding period (short preferred).
   \end{itemize}
 \end{frame}

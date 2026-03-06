@@ -1,0 +1,9 @@
+Logistic OOS IV-RV Signal Report
+========================================
+Sharpe: 5.3126
+Annual Return: 193.9930%
+Annual Vol: 36.5159%
+Max Drawdown: -60.9351%
+Trades: 91
+Win Rate: 48.3516%
+Total PnL: 8128103.02

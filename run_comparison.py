@@ -36,7 +36,7 @@ from src.config import (
     SIGNAL_ZSCORE_ENTRY, SIGNAL_LOOKBACK,
     NOTIONAL_CAPITAL, TRADING_DAYS_PER_YEAR,
     PLOT_COLORS, PLOT_PALETTE, PLOT_PRIMARY, PLOT_SECONDARY,
-    PLOT_NEUTRAL, PLOT_POSITIVE, PLOT_NEGATIVE,
+    PLOT_ACCENT, PLOT_NEUTRAL, PLOT_POSITIVE, PLOT_NEGATIVE,
 )
 from src.data_loader import load_all_data
 from src.feature_engineering import build_feature_table
