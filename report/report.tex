@@ -289,9 +289,11 @@ Table~\ref{tab:fullsample} summarizes the baseline VRP strategy performance over
 \textbf{Metric} & \textbf{Value} \\
 \midrule
 Number of Trades & 93 \\
+Trades/Year & 8.0 \\
 Win Rate & 50.5\% \\
 Total Net PnL & \$7,625,207 \\
 Average Trade PnL & \$81,991 \\
+Median Trade PnL & \$1,939 \\
 Profit Factor & 1.87 \\
 Annualized Return & 165.2\% \\
 Annualized Volatility & 31.4\% \\
@@ -306,6 +308,8 @@ CVaR (95\%) & $-$3.56\% daily \\
 \bottomrule
 \end{tabular}
 \end{table}
+
+\noindent\textbf{Benchmark (buy-and-hold SPX):} Sharpe 0.62, ann.\ return 10.9\%, max drawdown $-$33.0\%. Strategy alpha (ann.) 88.5\%, information ratio 2.44. Capacity (1\% of SPX options ADV): \$500M.
 
 The strategy generates strong risk-adjusted returns (Sharpe 5.26) with a 25\% stop-loss limiting per-trade losses: the average winner (\$348K) exceeds the average loser (\$190K).
 Negative skewness ($-$1.19) and elevated kurtosis (11.7) reflect some left-tail risk, but maximum drawdown is 79.4\% rather than 98\%+ without the stop.

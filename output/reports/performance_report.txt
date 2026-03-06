@@ -3,60 +3,60 @@
 ============================================================
 
 RETURN METRICS
-  annualised_return             : -0.2682
-  annualised_volatility         : 1.1792
-  sharpe_ratio                  : -0.2274
-  sortino_ratio                 : -0.2190
-  calmar_ratio                  : -0.4440
-  probabilistic_sharpe_ratio (SR>0): 0.9977
+  annualised_return             : 1.6515
+  annualised_volatility         : 0.3141
+  sharpe_ratio                  : 5.2584
+  sortino_ratio                 : 6.4583
+  calmar_ratio                  : 2.0797
+  probabilistic_sharpe_ratio (SR>0): 1.0000
 
 DRAWDOWN
-  max_drawdown                  : -0.6040
+  max_drawdown                  : -0.7941
 
 DISTRIBUTION & HIGHER MOMENTS
-  mean_daily                    : 0.001950
-  std_daily                     : 0.074283
-  skewness                      : -3.081084
-  kurtosis                      : 8.605944
-  min_daily                     : -0.265637
-  max_daily                     : 0.035036
-  pct_positive                  : 0.901961
-  var_95                        : -0.195210
-  cvar_95                       : -0.265637
-  skew_se                       : 0.342997
+  mean_daily                    : 0.004075
+  std_daily                     : 0.019785
+  skewness                      : -1.191575
+  kurtosis                      : 11.657871
+  min_daily                     : -0.124976
+  max_daily                     : 0.066780
+  pct_positive                  : 0.577766
+  var_95                        : -0.015580
+  cvar_95                       : -0.035591
+  skew_se                       : 0.056629
   skew_significant              : True
   fat_tails                     : True
 
 TRADE STATISTICS (gain per trade, holding period, frequency)
-  n_trades                      : 4
-  win_rate                      : 0.5000
-  avg_pnl                       : 24860.0643
-  median_pnl                    : 45262.0342
-  std_pnl                       : 697590.6667
-  total_pnl                     : 99440.2570
-  avg_winner                    : 572958.0948
-  avg_loser                     : -523237.9662
-  profit_factor                 : 1.0950
-  max_win                       : 805828.4334
-  max_loss                      : -796912.2447
-  avg_holding_days              : 11.7500
-  median_holding_days           : 12.0000
+  n_trades                      : 93
+  win_rate                      : 0.5054
+  avg_pnl                       : 81991.4697
+  median_pnl                    : 1938.5853
+  std_pnl                       : 360395.0249
+  total_pnl                     : 7625206.6802
+  avg_winner                    : 347828.6144
+  avg_loser                     : -189624.7434
+  profit_factor                 : 1.8742
+  max_win                       : 1535949.7292
+  max_loss                      : -314832.4832
+  avg_holding_days              : 19.1183
+  median_holding_days           : 22.0000
   min_holding_days              : 1
   max_holding_days              : 22
-  trades_per_year               : 3.7948
-  avg_iv_rv_spread              : -0.1177
+  trades_per_year               : 7.9682
+  avg_iv_rv_spread              : 0.0036
 
 BENCHMARK (buy-and-hold SPX)
-  benchmark_sharpe              : -0.0568
-  benchmark_ann_return          : -0.0145
-  benchmark_max_dd              : -0.1882
-  strategy_sharpe               : -0.1984
-  strategy_ann_return           : -0.1185
-  strategy_max_dd               : -0.6040
-  correlation                   : 0.0635
-  beta                          : 0.1487
-  alpha_ann                     : -0.1164
-  information_ratio             : -0.1639
+  benchmark_sharpe              : 0.6183
+  benchmark_ann_return          : 0.1088
+  benchmark_max_dd              : -0.3304
+  strategy_sharpe               : 3.4472
+  strategy_ann_return           : 0.8786
+  strategy_max_dd               : -0.7941
+  correlation                   : -0.0420
+  beta                          : -0.0608
+  alpha_ann                     : 0.8852
+  information_ratio             : 2.4375
 
 CAPACITY
   Illustrative: assumes SPX options ADV ~$50B; deploy up to 1.0% of ADV. Not data-driven.

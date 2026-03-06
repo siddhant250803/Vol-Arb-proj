@@ -35,6 +35,8 @@ from src.config import (
     OUTPUT_DIR, FIGURES_DIR, REPORTS_DIR, REPORT_FIGURES_DIR,
     SIGNAL_ZSCORE_ENTRY, SIGNAL_LOOKBACK,
     NOTIONAL_CAPITAL, TRADING_DAYS_PER_YEAR,
+    PLOT_COLORS, PLOT_PALETTE, PLOT_PRIMARY, PLOT_SECONDARY,
+    PLOT_NEUTRAL, PLOT_POSITIVE, PLOT_NEGATIVE,
 )
 from src.data_loader import load_all_data
 from src.feature_engineering import build_feature_table
@@ -252,20 +254,20 @@ def plot_strategy_comparison(results, pnl_dict, spx_df=None):
             ret = spx["spx_close"].pct_change().fillna(0)
             cum_ret = (1 + ret).cumprod()
             bench_pnl_m = (cum_ret.values - 1) * 1e6 / 1e6  # PnL in $M from $1M
-            ax.plot(spx["date"], bench_pnl_m, label="Buy & Hold SPX", lw=1, color="gray", ls="--")
+            ax.plot(spx["date"], bench_pnl_m, label="Buy & Hold SPX", lw=1, color=PLOT_NEUTRAL, ls="--")
     ax.set_title("Cumulative PnL ($M) vs Buy & Hold SPX", fontsize=12, fontweight="bold")
     ax.set_ylabel("$ Millions")
     ax.legend(fontsize=9)
-    ax.axhline(0, color="grey", lw=0.5)
+    ax.axhline(0, color=PLOT_NEUTRAL, lw=0.5)
     ax.grid(True, alpha=0.3)
 
     # 2. Sharpe ratios (strategies only; benchmark in table)
     ax = axes[0, 1]
     sharpes = [r["sharpe"] for r in results if r["n_trades"] > 0]
-    colors = ["green" if s > 0 else "red" for s in sharpes]
+    colors = [PLOT_POSITIVE if s > 0 else PLOT_NEGATIVE for s in sharpes]
     ax.bar(strategies, sharpes, color=colors, alpha=0.7, edgecolor="none")
     ax.set_title("Sharpe Ratio", fontsize=12, fontweight="bold")
-    ax.axhline(0, color="grey", lw=0.5)
+    ax.axhline(0, color=PLOT_NEUTRAL, lw=0.5)
     ax.grid(True, alpha=0.3, axis="y")
 
     # 3. Win Rate & # Trades
@@ -273,7 +275,7 @@ def plot_strategy_comparison(results, pnl_dict, spx_df=None):
     n_trades = [r["n_trades"] for r in results if r["n_trades"] > 0]
     win_rates = [r["win_rate"] * 100 for r in results if r["n_trades"] > 0]
     x = np.arange(len(strategies))
-    ax.bar(x, n_trades, color="steelblue", alpha=0.7, label="# Trades")
+    ax.bar(x, n_trades, color=PLOT_SECONDARY, alpha=0.7, label="# Trades")
     ax2 = ax.twinx()
     ax2.plot(x, win_rates, "ro-", label="Win Rate %", ms=8)
     ax.set_xticks(x)
@@ -342,7 +344,7 @@ def plot_strategy_comparison(results, pnl_dict, spx_df=None):
         table.scale(0.95, 1.8)
         for (row, col), cell in table.get_celld().items():
             if row == 0:
-                cell.set_facecolor("#4472C4")
+                cell.set_facecolor(PLOT_COLORS["600"])
                 cell.set_text_props(color="white", fontweight="bold")
     ax.set_title("Performance Summary (PSR = Prob. Sharpe > 0)", fontsize=12, fontweight="bold")
 
@@ -391,14 +393,14 @@ def plot_fomc_analysis(fomc_results):
         x = np.arange(len(labels))
         w = 0.35
         ax.bar(x - w / 2, fomc_vals, w, label="FOMC Window (±7d)",
-               color="coral", alpha=0.8, edgecolor="none")
+               color=PLOT_ACCENT, alpha=0.8, edgecolor="none")
         ax.bar(x + w / 2, nonfomc_vals, w, label="Non-FOMC",
-               color="steelblue", alpha=0.8, edgecolor="none")
+               color=PLOT_SECONDARY, alpha=0.8, edgecolor="none")
         ax.set_xticks(x)
         ax.set_xticklabels(labels, fontsize=9)
         ax.set_title(title, fontsize=12, fontweight="bold")
         ax.legend(fontsize=8)
-        ax.axhline(0, color="grey", lw=0.5)
+        ax.axhline(0, color=PLOT_NEUTRAL, lw=0.5)
         ax.grid(True, alpha=0.3, axis="y")
         if metric == "psr":
             ax.set_ylabel("%")

@@ -16,14 +16,16 @@ volatility arbitrage pipeline:
     Stage 8 — Export Results        (CSV artifacts)
 
 Usage:
-    python run_pipeline.py              # full run
+    python run_pipeline.py              # full run (figures 01–12 only)
     python run_pipeline.py --quick      # fast dev run (fewer rows)
+    python run_pipeline.py --all-figures  # also run comparison + robustness → figures 13–20
 """
 
 import sys
 import time
 import warnings
 import argparse
+import subprocess
 from pathlib import Path
 
 import numpy as np
@@ -218,7 +220,8 @@ def stage7_visualise(data, features, signals, pnl_df, trades_df,
     if report:
         viz.plot_summary_dashboard(data["spx"], features, signals, pnl_df, report)
 
-    print(f"\n  All figures saved to: {FIGURES_DIR}")
+    print(f"\n  Figures 01–12 saved to: {FIGURES_DIR}")
+    print("  (Figures 13–20 require: python run_comparison.py && python run_robustness.py  or  run_pipeline.py --all-figures)")
 
 
 def stage8_export(data, features, signals, trades_df, pnl_df, report):
@@ -320,6 +323,10 @@ def main():
         "--quick", action="store_true",
         help="Fast development run (fewer rows, smaller windows)."
     )
+    parser.add_argument(
+        "--all-figures", action="store_true",
+        help="Also run run_comparison.py and run_robustness.py to generate figures 13–20 (strategy comparison, FOMC, OOS, stress, regime, param sensitivity, bootstrap, yearly)."
+    )
     args = parser.parse_args()
 
     start_time = time.time()
@@ -330,6 +337,8 @@ def main():
     print("=" * 60)
     if args.quick:
         print("  ⚡ QUICK MODE — reduced data for development")
+    if args.all_figures:
+        print("  📊 ALL FIGURES — will run comparison + robustness after pipeline")
     print()
 
     # ── Run all stages ─────────────────────────────────────
@@ -344,6 +353,22 @@ def main():
     stage7_visualise(data, augmented, signals, pnl_df, trades_df,
                      report, subperiod_df, param_df)
     stage8_export(data, augmented, signals, trades_df, pnl_df, report)
+
+    # ── Optional: generate figures 13–20 ───────────────────
+    if args.all_figures:
+        print("\n" + "█" * 60)
+        print("  GENERATING FIGURES 13–20 (comparison + robustness)")
+        print("█" * 60 + "\n")
+        root = Path(__file__).resolve().parent
+        for name, script in [("comparison (13–14)", "run_comparison.py"), ("robustness (15–20)", "run_robustness.py")]:
+            path = root / script
+            if path.exists():
+                print(f"  Running {script} ...")
+                rc = subprocess.run([sys.executable, str(path)], cwd=str(root))
+                if rc.returncode != 0:
+                    print(f"  [!] {script} exited with code {rc.returncode}")
+            else:
+                print(f"  [!] {script} not found, skipping {name}")
 
     # ── Done ───────────────────────────────────────────────
     elapsed = time.time() - start_time

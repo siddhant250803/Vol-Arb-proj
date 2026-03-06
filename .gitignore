@@ -14,10 +14,7 @@ __pycache__/
 .idea/
 
 # Large data files (too big for GitHub; keep locally)
-Group 4 MS&E244/Options/spx-weeklies_daily_friday-expiration_all.csv
-Group 4 MS&E244/Options/spx-weeklies-filtered.csv
-Group 4 MS&E244/Options/spx-weeklies-all.csv
-Group 4 MS&E244/Risk-Free/yield_panel_daily_frequency_monthly_maturity.csv
+Group 4 MS&E244/
 
 # Misc
 *.docx

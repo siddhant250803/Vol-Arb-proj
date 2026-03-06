@@ -43,6 +43,8 @@ from src.config import (
     SIGNAL_ZSCORE_ENTRY, SIGNAL_LOOKBACK,
     NOTIONAL_CAPITAL, TRADING_DAYS_PER_YEAR,
     POSITION_HOLD_DAYS, TRANSACTION_COST_BPS,
+    PLOT_COLORS, PLOT_PALETTE, PLOT_PRIMARY, PLOT_SECONDARY,
+    PLOT_ACCENT, PLOT_NEUTRAL, PLOT_POSITIVE, PLOT_NEGATIVE,
 )
 from src.data_loader import load_all_data
 from src.feature_engineering import build_feature_table
@@ -474,7 +476,7 @@ def plot_oos_walkforward(oos_results, split_date, wf_results, spx_df=None):
 
     # OOS cumulative PnL (strategy + benchmark)
     ax = fig.add_subplot(gs[0, 0])
-    for label, color in [("IN-SAMPLE", "steelblue"), ("OUT-OF-SAMPLE", "coral")]:
+    for label, color in [("IN-SAMPLE", PLOT_SECONDARY), ("OUT-OF-SAMPLE", PLOT_ACCENT)]:
         r = oos_results.get(label, {})
         pdf = r.get("pnl_df")
         if pdf is not None and not pdf.empty:
@@ -487,8 +489,8 @@ def plot_oos_walkforward(oos_results, split_date, wf_results, spx_df=None):
             bench = benchmark_returns_from_spx(spx_df, full_start, full_end)
             if len(bench) > 1:
                 cum = (1 + bench).cumprod()
-                ax.plot(bench.index, (cum - 1) * 1e6 / 1e6, color="gray", ls="--", lw=0.8, label="Buy & Hold SPX")
-    ax.axvline(split_date, color="grey", ls="--", lw=1, label=f"Split: {split_date.date()}")
+                ax.plot(bench.index, (cum - 1) * 1e6 / 1e6, color=PLOT_NEUTRAL, ls="--", lw=0.8, label="Buy & Hold SPX")
+    ax.axvline(split_date, color=PLOT_NEUTRAL, ls="--", lw=1, label=f"Split: {split_date.date()}")
     ax.set_title("Out-of-Sample: Cumulative PnL ($M) vs SPX", fontweight="bold")
     ax.set_ylabel("$ Millions")
     ax.legend(fontsize=8)
@@ -504,22 +506,22 @@ def plot_oos_walkforward(oos_results, split_date, wf_results, spx_df=None):
         r = oos_results.get(label, {})
         vals = [r.get(m, 0) if not (isinstance(r.get(m), float) and np.isnan(r.get(m))) else 0 for m in metrics_to_show]
         ax.bar(x + i * w, vals, w, label=label,
-               color=["steelblue", "coral"][i], alpha=0.8)
+               color=[PLOT_SECONDARY, PLOT_ACCENT][i], alpha=0.8)
     ax.set_xticks(x + w / 2)
     ax.set_xticklabels(["Sharpe", "Sortino", "PSR"])
     ax.set_title("OOS Risk-Adjusted Metrics (PSR = Prob. Sharpe > 0)", fontweight="bold")
     ax.legend(fontsize=9)
-    ax.axhline(0, color="grey", lw=0.5)
+    ax.axhline(0, color=PLOT_NEUTRAL, lw=0.5)
     ax.grid(True, alpha=0.3, axis="y")
 
     # Walk-forward Sharpe by window
     ax = fig.add_subplot(gs[1, 0])
     wf_sharpes = [r.get("sharpe", 0) for r in wf_results]
     wf_labels = [f"W{r['window']}\n{r['start'].strftime('%Y-%m')}" for r in wf_results]
-    colors = ["green" if s > 0 else "red" for s in wf_sharpes]
+    colors = [PLOT_POSITIVE if s > 0 else PLOT_NEGATIVE for s in wf_sharpes]
     ax.bar(wf_labels, wf_sharpes, color=colors, alpha=0.7, edgecolor="none")
     ax.set_title("Walk-Forward: Sharpe by Window", fontweight="bold")
-    ax.axhline(0, color="grey", lw=0.5)
+    ax.axhline(0, color=PLOT_NEUTRAL, lw=0.5)
     ax.grid(True, alpha=0.3, axis="y")
 
     # Walk-forward cumulative PnL overlaid
@@ -550,29 +552,29 @@ def plot_stress_periods(stress_results, spx_df=None):
     # Sharpe
     ax = axes[0]
     sharpes = [r.get("sharpe", 0) for r in stress_results]
-    colors = ["green" if s > 0 else "red" for s in sharpes]
+    colors = [PLOT_POSITIVE if s > 0 else PLOT_NEGATIVE for s in sharpes]
     ax.barh(x, sharpes, color=colors, alpha=0.7, edgecolor="none")
     ax.set_yticks(x)
     ax.set_yticklabels(names, fontsize=9)
     ax.set_title("Sharpe Ratio", fontweight="bold")
-    ax.axvline(0, color="grey", lw=0.5)
+    ax.axvline(0, color=PLOT_NEUTRAL, lw=0.5)
     ax.grid(True, alpha=0.3, axis="x")
 
     # Total PnL
     ax = axes[1]
     pnls = [r.get("total_pnl", 0) / 1e6 for r in stress_results]
-    colors = ["green" if p > 0 else "red" for p in pnls]
+    colors = [PLOT_POSITIVE if p > 0 else PLOT_NEGATIVE for p in pnls]
     ax.barh(x, pnls, color=colors, alpha=0.7, edgecolor="none")
     ax.set_yticks(x)
     ax.set_yticklabels(names, fontsize=9)
     ax.set_title("Total PnL ($M)", fontweight="bold")
-    ax.axvline(0, color="grey", lw=0.5)
+    ax.axvline(0, color=PLOT_NEUTRAL, lw=0.5)
     ax.grid(True, alpha=0.3, axis="x")
 
     # Max Drawdown
     ax = axes[2]
     dds = [r.get("max_dd", 0) * 100 for r in stress_results]
-    ax.barh(x, dds, color="darkred", alpha=0.6, edgecolor="none")
+    ax.barh(x, dds, color=PLOT_COLORS["600"], alpha=0.6, edgecolor="none")
     ax.set_yticks(x)
     ax.set_yticklabels(names, fontsize=9)
     ax.set_title("Max Drawdown (%)", fontweight="bold")
@@ -591,12 +593,12 @@ def plot_stress_periods(stress_results, spx_df=None):
                 bench_rets.append(tot_ret * 100)
             else:
                 bench_rets.append(0)
-        colors_b = ["green" if b > 0 else "red" for b in bench_rets]
+        colors_b = [PLOT_POSITIVE if b > 0 else PLOT_NEGATIVE for b in bench_rets]
         ax.barh(x, bench_rets, color=colors_b, alpha=0.6, edgecolor="none")
         ax.set_yticks(x)
         ax.set_yticklabels(names, fontsize=9)
         ax.set_title("SPX Return (%)", fontweight="bold")
-        ax.axvline(0, color="grey", lw=0.5)
+        ax.axvline(0, color=PLOT_NEUTRAL, lw=0.5)
         ax.grid(True, alpha=0.3, axis="x")
 
     fig.suptitle("Stress-Period Performance (Strategy vs SPX)", fontsize=14, fontweight="bold", y=1.02)
@@ -626,12 +628,12 @@ def plot_regime_analysis(regime_results):
             elif metric == "psr":
                 v = v * 100 if not np.isnan(v) else 0
             vals.append(v)
-        colors = ["#4e79a7", "#f28e2b", "#e15759", "#76b7b2"]
+        colors = PLOT_PALETTE[:4]
         ax.bar(x, vals, color=colors[:len(names)], alpha=0.8, edgecolor="none")
         ax.set_xticks(x)
         ax.set_xticklabels([n.split("(")[0].strip() for n in names], fontsize=9)
         ax.set_title(title, fontweight="bold")
-        ax.axhline(0, color="grey", lw=0.5)
+        ax.axhline(0, color=PLOT_NEUTRAL, lw=0.5)
         ax.grid(True, alpha=0.3, axis="y")
 
     fig.suptitle("Volatility-Regime Analysis (incl. PSR)", fontsize=14, fontweight="bold", y=1.02)
@@ -649,15 +651,15 @@ def plot_param_sensitivity(thresh_res, hold_res, cost_res):
     psrs = [r.get("psr", np.nan) * 100 if not (isinstance(r.get("psr"), float) and np.isnan(r.get("psr"))) else 0 for r in thresh_res]
     nt = [r.get("n_trades", 0) for r in thresh_res]
     x = np.arange(len(thrs))
-    ax.bar(x - 0.2, shs, 0.35, color="steelblue", alpha=0.7, label="Sharpe")
+    ax.bar(x - 0.2, shs, 0.35, color=PLOT_SECONDARY, alpha=0.7, label="Sharpe")
     ax.set_xticks(x)
     ax.set_xticklabels([f"z>{t:.1f}" for t in thrs], fontsize=9)
     ax.set_title("Z-Score Threshold (Sharpe & PSR)", fontweight="bold")
     ax.set_ylabel("Sharpe")
     ax.legend(loc="upper right", fontsize=8)
     ax2 = ax.twinx()
-    ax2.plot(x, psrs, "go-", ms=6, label="PSR (%)", color="darkgreen")
-    ax2.set_ylabel("PSR (%)", color="darkgreen")
+    ax2.plot(x, psrs, "go-", ms=6, label="PSR (%)", color=PLOT_POSITIVE)
+    ax2.set_ylabel("PSR (%)", color=PLOT_POSITIVE)
     ax2.set_ylim(0, 105)
     ax.grid(True, alpha=0.3, axis="y")
 
@@ -666,14 +668,14 @@ def plot_param_sensitivity(thresh_res, hold_res, cost_res):
     hds = [r["hold_days"] for r in hold_res]
     shs = [r.get("sharpe", 0) for r in hold_res]
     pnls = [r.get("total_pnl", 0) / 1e6 for r in hold_res]
-    ax.bar(np.arange(len(hds)), shs, color="darkorange", alpha=0.7)
+    ax.bar(np.arange(len(hds)), shs, color=PLOT_ACCENT, alpha=0.7)
     ax.set_xticks(np.arange(len(hds)))
     ax.set_xticklabels([f"{h}d" for h in hds], fontsize=9)
     ax.set_title("Holding Period", fontweight="bold")
     ax.set_ylabel("Sharpe")
     ax2 = ax.twinx()
     ax2.plot(np.arange(len(hds)), pnls, "go-", ms=6, label="PnL ($M)")
-    ax2.set_ylabel("Total PnL ($M)", color="green")
+    ax2.set_ylabel("Total PnL ($M)", color=PLOT_POSITIVE)
     ax.grid(True, alpha=0.3, axis="y")
 
     # Transaction cost
@@ -681,14 +683,14 @@ def plot_param_sensitivity(thresh_res, hold_res, cost_res):
     cs = [r["cost_bps"] for r in cost_res]
     shs = [r.get("sharpe", 0) for r in cost_res]
     pnls = [r.get("total_pnl", 0) / 1e6 for r in cost_res]
-    ax.bar(np.arange(len(cs)), shs, color="mediumpurple", alpha=0.7)
+    ax.bar(np.arange(len(cs)), shs, color=PLOT_COLORS["300"], alpha=0.7)
     ax.set_xticks(np.arange(len(cs)))
     ax.set_xticklabels([f"{c}bp" for c in cs], fontsize=9)
     ax.set_title("Transaction Cost", fontweight="bold")
     ax.set_ylabel("Sharpe")
     ax2 = ax.twinx()
     ax2.plot(np.arange(len(cs)), pnls, "go-", ms=6, label="PnL ($M)")
-    ax2.set_ylabel("Total PnL ($M)", color="green")
+    ax2.set_ylabel("Total PnL ($M)", color=PLOT_POSITIVE)
     ax.grid(True, alpha=0.3, axis="y")
 
     fig.suptitle("Parameter Sensitivity (incl. PSR = Prob. Sharpe > 0)",
@@ -699,12 +701,12 @@ def plot_param_sensitivity(thresh_res, hold_res, cost_res):
 
 def plot_bootstrap(boot_sharpes, lo, hi, mean_s, psr=None):
     fig, ax = plt.subplots(figsize=(10, 6))
-    ax.hist(boot_sharpes, bins=80, color="steelblue", alpha=0.6, edgecolor="none",
+    ax.hist(boot_sharpes, bins=80, color=PLOT_SECONDARY, alpha=0.6, edgecolor="none",
             density=True, label=f"Bootstrap (n={len(boot_sharpes):,})")
-    ax.axvline(mean_s, color="navy", lw=2, ls="--", label=f"Mean = {mean_s:.2f}")
-    ax.axvline(lo, color="red", lw=1.5, ls=":", label=f"95% CI lower = {lo:.2f}")
-    ax.axvline(hi, color="red", lw=1.5, ls=":", label=f"95% CI upper = {hi:.2f}")
-    ax.axvline(0, color="grey", lw=1, ls="-", alpha=0.5)
+    ax.axvline(mean_s, color=PLOT_COLORS["800"], lw=2, ls="--", label=f"Mean = {mean_s:.2f}")
+    ax.axvline(lo, color=PLOT_PRIMARY, lw=1.5, ls=":", label=f"95% CI lower = {lo:.2f}")
+    ax.axvline(hi, color=PLOT_PRIMARY, lw=1.5, ls=":", label=f"95% CI upper = {hi:.2f}")
+    ax.axvline(0, color=PLOT_NEUTRAL, lw=1, ls="-", alpha=0.5)
 
     pct_pos = (boot_sharpes > 0).mean()
     txt = f"P(Sharpe > 0) = {pct_pos:.1%}"
@@ -733,7 +735,7 @@ def plot_yearly(yearly_results, spx_df=None):
     # Sharpe by year (optionally vs benchmark)
     ax = axes[0, 0]
     shs = [r.get("sharpe", 0) for r in yearly_results]
-    colors = ["green" if s > 0 else "red" for s in shs]
+    colors = [PLOT_POSITIVE if s > 0 else PLOT_NEGATIVE for s in shs]
     ax.bar(x - w / 2, shs, w, color=colors, alpha=0.7, edgecolor="none", label="Strategy")
     if spx_df is not None and not spx_df.empty:
         bench_sharpes = []
@@ -746,30 +748,30 @@ def plot_yearly(yearly_results, spx_df=None):
                 bench_sharpes.append(sr_b)
             else:
                 bench_sharpes.append(0)
-        ax.bar(x + w / 2, bench_sharpes, w, color="gray", alpha=0.6, label="SPX")
+        ax.bar(x + w / 2, bench_sharpes, w, color=PLOT_NEUTRAL, alpha=0.6, label="SPX")
     ax.set_xticks(x)
     ax.set_xticklabels(years, fontsize=8, rotation=45)
     ax.set_title("Sharpe Ratio by Year (vs SPX)", fontweight="bold")
-    ax.axhline(0, color="grey", lw=0.5)
+    ax.axhline(0, color=PLOT_NEUTRAL, lw=0.5)
     ax.legend(fontsize=8)
     ax.grid(True, alpha=0.3, axis="y")
 
     # Total PnL by year
     ax = axes[0, 1]
     pnls = [r.get("total_pnl", 0) / 1e6 for r in yearly_results]
-    colors = ["green" if p > 0 else "red" for p in pnls]
+    colors = [PLOT_POSITIVE if p > 0 else PLOT_NEGATIVE for p in pnls]
     ax.bar(x, pnls, color=colors, alpha=0.7, edgecolor="none")
     ax.set_xticks(x)
     ax.set_xticklabels(years, fontsize=8, rotation=45)
     ax.set_title("Total PnL ($M) by Year", fontweight="bold")
-    ax.axhline(0, color="grey", lw=0.5)
+    ax.axhline(0, color=PLOT_NEUTRAL, lw=0.5)
     ax.grid(True, alpha=0.3, axis="y")
 
     # Win rate by year
     ax = axes[1, 0]
     wrs = [r.get("win_rate", 0) * 100 for r in yearly_results]
-    ax.bar(x, wrs, color="steelblue", alpha=0.7, edgecolor="none")
-    ax.axhline(50, color="grey", ls="--", lw=0.8)
+    ax.bar(x, wrs, color=PLOT_SECONDARY, alpha=0.7, edgecolor="none")
+    ax.axhline(50, color=PLOT_NEUTRAL, ls="--", lw=0.8)
     ax.set_xticks(x)
     ax.set_xticklabels(years, fontsize=8, rotation=45)
     ax.set_title("Win Rate (%) by Year", fontweight="bold")
@@ -779,7 +781,7 @@ def plot_yearly(yearly_results, spx_df=None):
     # Max drawdown by year
     ax = axes[1, 1]
     dds = [r.get("max_dd", 0) * 100 for r in yearly_results]
-    ax.bar(x, dds, color="darkred", alpha=0.6, edgecolor="none")
+    ax.bar(x, dds, color=PLOT_COLORS["600"], alpha=0.6, edgecolor="none")
     ax.set_xticks(x)
     ax.set_xticklabels(years, fontsize=8, rotation=45)
     ax.set_title("Max Drawdown (%) by Year", fontweight="bold")

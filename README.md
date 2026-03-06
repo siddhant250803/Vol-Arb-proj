@@ -95,6 +95,8 @@ All outputs are saved to `output/`:
 | `output/data/daily_pnl.csv` | Daily PnL series |
 | `output/reports/performance_report.txt` | Full performance report |
 
+**Beamer presentation:** `report/presentation.tex` — concise academic slides (all experiments and results) using the project color palette. Build: `cd report && pdflatex presentation.tex` → `presentation.pdf` (16 slides).
+
 ---
 
 ## Pipeline Stages

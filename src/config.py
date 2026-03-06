@@ -113,6 +113,30 @@ FIGURE_DPI = 150
 FIGURE_SIZE = (14, 7)
 STYLE = "seaborn-v0_8-whitegrid"
 
+# Project color palette (academic / coherent across report and figures)
+PLOT_COLORS = {
+    "50": "#FCE9E9",
+    "100": "#F6C1C1",
+    "200": "#F09999",
+    "300": "#EA7171",
+    "400": "#E44949",
+    "500": "#DE2121",   # primary
+    "600": "#B61B1B",
+    "700": "#8C1515",
+    "800": "#660F0F",
+    "900": "#3E0909",
+    "950": "#160303",
+}
+# Ordered list for cycling (light to dark)
+PLOT_PALETTE = [PLOT_COLORS[k] for k in ("200", "400", "600", "800", "300", "700", "500", "900")]
+PLOT_PRIMARY = PLOT_COLORS["500"]
+PLOT_SECONDARY = PLOT_COLORS["700"]
+PLOT_LIGHT = PLOT_COLORS["100"]
+PLOT_ACCENT = PLOT_COLORS["400"]
+PLOT_NEUTRAL = "#4a4a4a"
+PLOT_POSITIVE = "#2d7d2d"   # green for long vol / positive
+PLOT_NEGATIVE = PLOT_COLORS["600"]   # for short vol / negative
+
 # ────────────────────────────────────────────────────────────
 # 9. FOMC / Macro Event Dates  (236 meetings, 1996–2025)
 # ────────────────────────────────────────────────────────────

@@ -9,7 +9,7 @@ Running RV models ...
 Building VRP signal ...
 
 Full-sample baseline backtest ...
-  Baseline: 93 trades, Sharpe=2.55, MaxDD=-81.5%
+  Baseline: 93 trades, Sharpe=5.26, MaxDD=-79.4%
 
 =================================================================
   A. OUT-OF-SAMPLE TEST (Train 60 % / Test 40 %)
@@ -19,38 +19,38 @@ Full-sample baseline backtest ...
     Trades:     56
     Win Rate:   51.8%
     Total PnL:  $   5,178,343
-    Ann Return: 135.16%
-    Sharpe:     2.97
-    Sortino:    2.49
-    Max DD:     -65.20%
+    Ann Return: 208.65%
+    Sharpe:     6.44
+    Sortino:    7.38
+    Max DD:     -58.30%
 
   OUT-OF-SAMPLE  (2018-09-26 00:00:00 → 2023-02-28 00:00:00)
     Trades:     37
     Win Rate:   48.6%
     Total PnL:  $   2,446,864
-    Ann Return: 79.33%
-    Sharpe:     1.99
-    Sortino:    1.91
-    Max DD:     -81.53%
+    Ann Return: 113.17%
+    Sharpe:     3.79
+    Sortino:    5.25
+    Max DD:     -79.41%
 
 =================================================================
   B. WALK-FORWARD ANALYSIS (5 windows)
 =================================================================
 
   Window 1: 2011-04-01 → 2014-04-25
-    Trades=17  Win=47%  PnL=$ 1,152,697  Sharpe=  0.94  MaxDD=-65.2%
+    Trades=17  Win=47%  PnL=$ 1,152,697  Sharpe=  3.62  MaxDD=-46.6%
 
   Window 2: 2014-04-28 → 2016-07-11
-    Trades=17  Win=59%  PnL=$ 1,518,319  Sharpe=  7.16  MaxDD=-60.9%
+    Trades=17  Win=59%  PnL=$ 1,518,319  Sharpe=  7.40  MaxDD=-58.3%
 
   Window 3: 2016-07-12 → 2018-09-24
-    Trades=22  Win=50%  PnL=$ 2,325,477  Sharpe=  2.99  MaxDD=-58.0%
+    Trades=22  Win=50%  PnL=$ 2,325,477  Sharpe=  7.94  MaxDD=-49.5%
 
   Window 4: 2018-09-25 → 2020-12-08
-    Trades=18  Win=44%  PnL=$ 1,382,509  Sharpe=  4.09  MaxDD=-75.8%
+    Trades=18  Win=44%  PnL=$ 1,382,509  Sharpe=  4.17  MaxDD=-73.5%
 
   Window 5: 2020-12-09 → 2023-02-24
-    Trades=19  Win=53%  PnL=$ 1,064,355  Sharpe=  0.77  MaxDD=-63.3%
+    Trades=19  Win=53%  PnL=$ 1,064,355  Sharpe=  3.44  MaxDD=-49.2%
 
 =================================================================
   C. YEARLY PERFORMANCE BREAKDOWN
@@ -58,19 +58,19 @@ Full-sample baseline backtest ...
 
     Year Trades   Win%       TotalPnL  Sharpe    MaxDD
   ───────────────────────────────────────────────────────
-    2011      2  100% $   1,326,486 19762.97    0.0%
-    2012      2    0% $    -851,481   -0.37  -87.7%
-    2013     11   55% $     752,732    1.67  -51.2%
-    2014      8   62% $     457,483    6.47  -31.9%
-    2015      8   25% $    -512,703   -1.72  -60.4%
-    2016      9   56% $   1,487,881    9.41  -49.7%
-    2017     10   60% $     787,727    1.75  -58.0%
-    2018      9   44% $   1,069,910    6.51  -51.3%
-    2019      7   57% $     261,087    2.67  -40.4%
-    2020     12   25% $     542,422   -0.08  -84.2%
-    2021      9   56% $     669,124    1.44  -43.7%
-    2022      8   62% $     667,010    8.80  -33.4%
-    2023      2    0% $    -271,780   -0.92  -44.8%
+    2011      2  100% $   1,326,486 13842.48    0.0%
+    2012      2    0% $    -851,481   -0.76  -61.5%
+    2013     11   55% $     752,732    5.47  -33.3%
+    2014      8   62% $     457,483    6.34  -30.8%
+    2015      8   25% $    -512,703   -1.70  -57.8%
+    2016      9   56% $   1,487,881   20.37  -31.3%
+    2017     10   60% $     787,727    6.00  -39.6%
+    2018      9   44% $   1,069,910    9.28  -49.5%
+    2019      7   57% $     261,087    2.46  -39.0%
+    2020     12   25% $     542,422    1.34  -73.9%
+    2021      9   56% $     669,124    5.17  -23.4%
+    2022      8   62% $     667,010    8.60  -32.2%
+    2023      2    0% $    -271,780   -1.74  -25.0%
 
 =================================================================
   D. STRESS-PERIOD ANALYSIS
@@ -83,35 +83,35 @@ Full-sample baseline backtest ...
     Trades=0  Win=0%  PnL=$         0  Sharpe=   nan  MaxDD=nan%
 
   EU Debt Crisis (2011)
-    Trades=2  Win=50%  PnL=$   838,154  Sharpe=1643.21  MaxDD=-10.5%
+    Trades=2  Win=50%  PnL=$   838,154  Sharpe=1384.70  MaxDD=-9.5%
 
   Taper Tantrum (2013)
-    Trades=5  Win=40%  PnL=$   188,969  Sharpe= -0.46  MaxDD=-24.9%
+    Trades=5  Win=40%  PnL=$   188,969  Sharpe=  1.64  MaxDD=-14.1%
 
   China/Oil (2015–16)
-    Trades=6  Win=50%  PnL=$   781,798  Sharpe= 10.85  MaxDD=-40.8%
+    Trades=6  Win=50%  PnL=$   781,798  Sharpe= 11.11  MaxDD=-38.5%
 
   Volmageddon (2018)
-    Trades=4  Win=50%  PnL=$   467,483  Sharpe=  3.64  MaxDD=-38.7%
+    Trades=4  Win=50%  PnL=$   467,483  Sharpe=  7.82  MaxDD=-37.0%
 
   COVID Crash (2020)
-    Trades=4  Win=50%  PnL=$ 1,459,800  Sharpe=159.07  MaxDD=-29.6%
+    Trades=4  Win=50%  PnL=$ 1,459,800  Sharpe=143.61  MaxDD=-27.7%
 
   Rate Hikes (2022)
-    Trades=8  Win=62%  PnL=$   667,010  Sharpe=  8.80  MaxDD=-33.4%
+    Trades=8  Win=62%  PnL=$   667,010  Sharpe=  8.60  MaxDD=-32.2%
 
 =================================================================
   E. VOLATILITY-REGIME ANALYSIS
 =================================================================
 
   Low Vol (bottom 33%)
-    Trades=37  Win=54%  PnL=$ 3,065,680  Sharpe=  2.21  MaxDD=-80.5%
+    Trades=37  Win=54%  PnL=$ 3,065,680  Sharpe=  5.97  MaxDD=-67.5%
 
   Med Vol (middle 33%)
-    Trades=29  Win=34%  PnL=$ 3,571,749  Sharpe=  2.44  MaxDD=-96.7%
+    Trades=29  Win=34%  PnL=$ 3,571,749  Sharpe=  8.03  MaxDD=-90.4%
 
   High Vol (top 33%)
-    Trades=40  Win=55%  PnL=$ 5,849,782  Sharpe=  7.19  MaxDD=-86.2%
+    Trades=40  Win=55%  PnL=$ 5,849,782  Sharpe= 12.28  MaxDD=-72.5%
 
 =================================================================
   F. PARAMETER SENSITIVITY GRID
@@ -119,35 +119,35 @@ Full-sample baseline backtest ...
 
   F1. Z-score Threshold Sensitivity
   (hold=22d, cost=5bps)
-    z>0.50  Trades=141  Sharpe=  0.02  PnL=$ 5,271,214
-    z>0.75  Trades=120  Sharpe= -0.28  PnL=$ 3,293,496
-    z>1.00  Trades= 93  Sharpe=  2.55  PnL=$ 7,625,207
-    z>1.25  Trades= 71  Sharpe=  4.29  PnL=$ 6,192,498
-    z>1.50  Trades= 48  Sharpe=  6.26  PnL=$ 4,743,773
-    z>2.00  Trades= 32  Sharpe=  1.53  PnL=$ 1,139,701
+    z>0.50  Trades=141  Sharpe=  1.47  PnL=$ 5,271,214
+    z>0.75  Trades=120  Sharpe=  1.02  PnL=$ 3,293,496
+    z>1.00  Trades= 93  Sharpe=  5.26  PnL=$ 7,625,207
+    z>1.25  Trades= 71  Sharpe=  5.83  PnL=$ 6,192,498
+    z>1.50  Trades= 48  Sharpe=  6.63  PnL=$ 4,743,773
+    z>2.00  Trades= 32  Sharpe=  1.59  PnL=$ 1,139,701
 
   F2. Holding Period Sensitivity
   (threshold=1.0, cost=5bps)
-    hold=10d  Trades=161  Sharpe= 20.00  PnL=$21,838,348
-    hold=15d  Trades=122  Sharpe=  4.18  PnL=$10,378,653
-    hold=22d  Trades= 93  Sharpe=  2.55  PnL=$ 7,625,207
-    hold=30d  Trades= 77  Sharpe=  0.82  PnL=$ 3,943,290
-    hold=44d  Trades= 62  Sharpe= -0.68  PnL=$  -124,653
+    hold=10d  Trades=161  Sharpe= 35.20  PnL=$21,838,348
+    hold=15d  Trades=122  Sharpe=  7.16  PnL=$10,378,653
+    hold=22d  Trades= 93  Sharpe=  5.26  PnL=$ 7,625,207
+    hold=30d  Trades= 77  Sharpe=  2.20  PnL=$ 3,943,290
+    hold=44d  Trades= 62  Sharpe= -0.17  PnL=$  -124,653
 
   F3. Transaction Cost Sensitivity
   (threshold=1.0, hold=22d)
-    cost= 0bps  Trades= 93  Sharpe=  2.55  PnL=$ 7,625,207
-    cost= 3bps  Trades= 93  Sharpe=  2.57  PnL=$ 7,652,638
-    cost= 5bps  Trades= 93  Sharpe=  2.55  PnL=$ 7,625,207
-    cost=10bps  Trades= 93  Sharpe=  2.51  PnL=$ 7,556,627
-    cost=15bps  Trades= 93  Sharpe=  2.46  PnL=$ 7,488,048
-    cost=20bps  Trades= 93  Sharpe=  2.42  PnL=$ 7,419,468
+    cost= 0bps  Trades= 93  Sharpe=  5.26  PnL=$ 7,625,207
+    cost= 3bps  Trades= 93  Sharpe=  5.29  PnL=$ 7,652,638
+    cost= 5bps  Trades= 93  Sharpe=  5.26  PnL=$ 7,625,207
+    cost=10bps  Trades= 93  Sharpe=  5.18  PnL=$ 7,556,627
+    cost=15bps  Trades= 93  Sharpe=  5.11  PnL=$ 7,488,048
+    cost=20bps  Trades= 93  Sharpe=  5.04  PnL=$ 7,419,468
 
 =================================================================
   G. BOOTSTRAP SHARPE CONFIDENCE INTERVALS
 =================================================================
 
-  Sample Sharpe:    2.55
-  Bootstrap Mean:   3.26
-  95% CI:           [-0.04, 9.50]
-  P(Sharpe > 0):    97.2%
+  Sample Sharpe:    5.26
+  Bootstrap Mean:   5.76
+  95% CI:           [1.03, 13.73]
+  P(Sharpe > 0):    99.7%
