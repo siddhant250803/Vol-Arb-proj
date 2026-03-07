@@ -6,8 +6,12 @@ Simulates a volatility-trading strategy that:
 
     1. Enters delta-hedged ATM straddles when signal is extreme
     2. Delta-hedges at a configurable frequency
-    3. Exits at a fixed horizon (or when signal mean-reverts)
+    3. Exits at expiry or at a fixed horizon (never holds past option expiry)
     4. Accounts for bid-ask spreads and transaction costs
+
+When signals carry exdate_trade, positions are closed at or before that expiry.
+Otherwise hold is capped at days to next Friday (weeklies). No position is ever
+held past the option expiry date.
 
 The core abstraction is a ``Trade`` dataclass that tracks each
 position from entry to exit, computing component PnLs.
@@ -157,6 +161,46 @@ def simulate_delta_hedge(prices, sigma, T_years, direction):
 
 
 # ────────────────────────────────────────────────────────────
+# 2b. Days to Next Friday (for Friday-expiring weeklies)
+# ────────────────────────────────────────────────────────────
+
+def trading_days_until_next_friday(d: pd.Timestamp) -> int:
+    """
+    Trading days from date d until the next Friday (inclusive of Friday).
+    Monday → Friday = 4 days, Friday → next Friday = 5 days.
+    """
+    w = d.weekday()  # 0=Mon, 4=Fri
+    if w == 4:  # Friday: next expiry is next week
+        return 5
+    return 4 - w  # Mon:4, Tue:3, Wed:2, Thu:1
+
+
+def effective_hold_days(entry_date: pd.Timestamp, requested_hold: int) -> int:
+    """
+    Cap holding period at days until next Friday (options expire every Friday).
+    Fallback when signal has no exdate_trade.
+    """
+    days_to_friday = trading_days_until_next_friday(entry_date)
+    return min(requested_hold, days_to_friday)
+
+
+def hold_days_from_expiry(entry_date: pd.Timestamp, exdate) -> Optional[int]:
+    """
+    Trading days from entry_date to exdate (inclusive).
+    Returns None if exdate is missing or already passed.
+    """
+    if exdate is None:
+        return None
+    try:
+        ex = pd.Timestamp(exdate)
+    except Exception:
+        return None
+    if pd.isna(ex) or entry_date > ex:
+        return None  # missing or already past expiry
+    return len(pd.bdate_range(entry_date, ex))
+
+
+# ────────────────────────────────────────────────────────────
 # 3.  Core Backtester
 # ────────────────────────────────────────────────────────────
 
@@ -164,6 +208,13 @@ def run_backtest(signal_df, spx_df, hold_days=None, cost_bps=None,
                  notional=None, stop_loss_pct=None):
     """
     Run the full backtest: enter on signal, hold, exit, compute PnL.
+
+    PnL marking convention:
+        - Hold to expiry: option PnL is marked to the closing price at the end
+          of the week when the option expires (strike = entry price).
+        - Early exit (stop-loss / mid-week): option PnL is marked to the closing
+          price on the exit day; straddle is valued at (spot = exit close,
+          strike = entry strike, time remaining).
 
     Position sizing:
         For each trade, the number of straddle contracts is computed as:
@@ -234,17 +285,34 @@ def run_backtest(signal_df, spx_df, hold_days=None, cost_bps=None,
 
         if not in_position and row["signal"] != 0:
             # ── ENTRY ──────────────────────────────────────
+            entry_date = row["date"]
+            exdate = row.get("exdate_trade", None)
+
+            # Cannot trade past expiry
+            if exdate is not None and not pd.isna(exdate):
+                if entry_date >= pd.Timestamp(exdate):
+                    i += 1
+                    continue  # skip: signal is post-expiry
+
+            # Hold period from expiry if signal carries it, else cap at Friday
+            this_hold = hold_days_from_expiry(entry_date, exdate)
+            if this_hold is None or this_hold <= 0:
+                this_hold = effective_hold_days(entry_date, hold_days)
+            entry_exdate = pd.Timestamp(exdate) if exdate is not None and not pd.isna(exdate) else None
+
             in_position = True
             entry_idx = i
             direction = int(row["signal"])
             entry_iv = row["iv"]
             entry_price = row["spx_close"]
-            entry_date = row["date"]
 
-            # Straddle premium per share (not yet ×multiplier)
-            T = hold_days / TRADING_DAYS_PER_YEAR
+            # Straddle premium: use actual time to expiry when known
+            if entry_exdate is not None:
+                entry_T = (entry_exdate - entry_date).days / 365.0
+            else:
+                entry_T = this_hold / TRADING_DAYS_PER_YEAR
             straddle_per_share = bs_straddle_price(
-                entry_price, entry_price, T, entry_iv
+                entry_price, entry_price, entry_T, entry_iv
             )
 
             # Position sizing: how many contracts can we trade?
@@ -258,15 +326,22 @@ def run_backtest(signal_df, spx_df, hold_days=None, cost_bps=None,
             days_held = i - entry_idx
             price_path = merged.iloc[entry_idx: i + 1]["spx_close"].values
             scale = n_contracts * multiplier
-            T_full = hold_days / TRADING_DAYS_PER_YEAR
+            # Time to expiry at entry (for hedge/MTM)
+            T_full = entry_T
 
             # ── Stop-loss: exit when loss reaches 25% of this trade's value ─
             # Trade value = premium deployed (straddle_per_share × scale), not portfolio notional
             # MTM must use *current* vol (realized vol so far), not entry_iv, so when vol spikes
             # we see the true loss and the stop triggers (otherwise e.g. Volmageddon never stops).
             trade_value = straddle_per_share * scale
+            # Exit at expiry, horizon, or end of data
+            at_expiry = (
+                entry_exdate is not None
+                and row["date"] >= entry_exdate
+            )
             exit_now = (
-                days_held >= hold_days           # fixed horizon
+                at_expiry
+                or days_held >= this_hold       # fixed horizon
                 or i == n - 1                    # end of data
             )
             if not exit_now and days_held >= 1 and stop_loss_pct is not None and stop_loss_pct > 0:
@@ -293,13 +368,17 @@ def run_backtest(signal_df, spx_df, hold_days=None, cost_bps=None,
                         exit_now = True
 
             if exit_now:
-                exit_price = row["spx_close"]
+                # Always mark PnL to closing price: expiry = end-of-week close, early = close on exit day
+                exit_price = row["spx_close"]  # closing price on exit date
                 exit_date = row["date"]
 
-                # Early exit (stop-loss): use MTM for option PnL with current vol
-                # Normal exit: use straddle payoff at expiry
-                is_early_exit = days_held < hold_days and i < n - 1
+                # Early exit (mid-week): mark to closing price at point of exit; strike = entry strike
+                # Normal exit (expiry): mark to closing price at end of week when option expires
+                is_early_exit = (entry_exdate is not None and not at_expiry) or (
+                    entry_exdate is None and days_held < this_hold and i < n - 1
+                )
                 if is_early_exit:
+                    # Mid-week exit: value straddle at (spot = closing price at exit, strike = entry_price)
                     tau_remaining = T_full - days_held / TRADING_DAYS_PER_YEAR
                     tau_remaining = max(tau_remaining, 1e-6)
                     if len(price_path) >= 2:
@@ -323,7 +402,7 @@ def run_backtest(signal_df, spx_df, hold_days=None, cost_bps=None,
                     )
                     hedge_pnl = hedge_pnl_per * scale
                 else:
-                    # Straddle payoff at expiry (per share)
+                    # Expiry: mark to closing price at end of week when option expires (strike = entry)
                     call_payoff = max(exit_price - entry_price, 0)
                     put_payoff = max(entry_price - exit_price, 0)
                     straddle_payoff = call_payoff + put_payoff

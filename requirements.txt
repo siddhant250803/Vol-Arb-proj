@@ -16,6 +16,10 @@ seaborn
 arch              # GARCH family models
 statsmodels       # HAR-RV, regression, diagnostics
 
+# --- Performance & risk metrics ---
+empyrical-reloaded   # Sharpe, Sortino, drawdown, Calmar (maintained fork of Quantopian empyrical)
+pytz                # required by empyrical-reloaded
+
 # --- Machine learning (optional extensions) ---
 scikit-learn
 

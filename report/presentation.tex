@@ -93,7 +93,7 @@
       \begin{itemize}
         \item Delta-hedged ATM straddles on SPX.
         \item Enter when VRP z-score $> 1$ (short vol) or $< -1$ (long vol).
-        \item 22-day hold, 25\% stop-loss, \$1M notional, 5\,bps cost.
+        \item Hold to expiry (1--5d for weeklies), 25\% stop-loss, \$1M notional, 5\,bps cost.
       \end{itemize}
     \end{column}
     \begin{column}{0.48\textwidth}
@@ -128,6 +128,21 @@
   \end{columns}
 \end{frame}
 
+\begin{frame}{Strategies Compared (Methods \& Models)}
+  \footnotesize
+  \textbf{1. VRP (Variance Risk Premium)} — Level signal
+  \begin{itemize}
+    \item IV: ATM at expiry (1--5d); RV: HAR/GARCH/GJR composite forecast
+    \item Signal: $z = (\text{IV} - \text{RV})/\sigma$; enter $|z| > 1$; short vol when IV rich
+  \end{itemize}
+  \vspace{0.2em}
+  \textbf{2. Var Swap} — Model-free IV
+  \begin{itemize}
+    \item IV: MFIV at expiry (variance swap rate from full option surface)
+    \item Same RV forecast and z-score rules; captures entire implied variance
+  \end{itemize}
+\end{frame}
+
 \begin{frame}{IV vs RV \& RV Forecasts}
   \begin{columns}[T]
     \begin{column}{0.48\textwidth}
@@ -135,7 +150,7 @@
         \includegraphics[width=\textwidth]{figures/03_iv_vs_rv.png}
       \end{adjustbox}
       \vspace{-0.3em}
-      \scriptsize ATM IV (30d) vs realized vol; spread = VRP raw input.
+      \scriptsize ATM IV (at expiry) vs realized vol; spread = VRP raw input.
     \end{column}
     \begin{column}{0.48\textwidth}
       \begin{adjustbox}{max width=\linewidth,max height=0.52\textheight,keepaspectratio}
@@ -161,7 +176,7 @@
         \includegraphics[width=\textwidth]{figures/06_surface_signals.png}
       \end{adjustbox}
       \vspace{-0.3em}
-      \scriptsize Skew, term-structure, and distribution signals.
+      \scriptsize Skew and term-structure signals.
     \end{column}
   \end{columns}
 \end{frame}
@@ -250,7 +265,7 @@
   \end{adjustbox}\\
   \scriptsize \centering Monthly return heatmap. \\
   \footnotesize
-  \textbf{Full-sample (VRP, 25\% stop):} 93 trades, 50.5\% win, \$7.63M total PnL; Sharpe 5.26, Sortino 6.46, Calmar 2.08; Ann.\ return 165.2\%, vol 31.4\%, max DD $-$79.4\%; Benchmark (SPX): Sharpe 0.62; alpha 88.5\%, info ratio 2.44.
+  \textbf{Full-sample (VRP, 25\% stop):} 188 trades, 46.3\% win, \$8.91M total PnL; Sharpe 0.90, Sortino 1.22, Calmar 0.35; Ann.\ return 35.1\%, vol 86.9\%, max DD $-$99.8\%; Benchmark (SPX): Sharpe 0.66; alpha 117.9\%, info ratio 0.31.
 \end{frame}
 
 \begin{frame}{Robustness \& Parameter Sensitivity (Pipeline)}
@@ -289,9 +304,9 @@
   \begin{adjustbox}{max width=\textwidth,max height=0.68\textheight,keepaspectratio}
     \includegraphics[width=\textwidth]{figures/13_strategy_comparison.png}
   \end{adjustbox}\\
-  \scriptsize \centering VRP vs Var Swap vs Distribution: PnL, Sharpe, drawdowns. \\
+  \scriptsize \centering VRP vs Var Swap: PnL, Sharpe, drawdowns. \\
   \footnotesize
-  \textbf{VRP dominates:} VRP: 93 trades, Sharpe 5.26, \$7.63M, max DD $-$79.4\%; Var Swap: 78 trades, Sharpe 1.79, \$5.62M, max DD $-$98.6\%; Distribution: 85 trades, Sharpe $-$0.74, $-$1.73M. 25\% stop limits drawdown for VRP vs Var Swap.
+  \textbf{Var Swap leads:} Var Swap: 190 trades, Sharpe 1.06, \$14.04M, max DD $-$100\%; VRP: 188 trades, Sharpe 0.90, \$8.91M, max DD $-$99.8\%. Both show high drawdowns.
 \end{frame}
 
 \begin{frame}{Results Comparison: All Strategies}
@@ -301,17 +316,15 @@
     \toprule
     \textbf{Strategy} & \textbf{Trades} & \textbf{Win Rate} & \textbf{Sharpe} & \textbf{Total PnL} & \textbf{Max DD} \\
     \midrule
-    VRP (ATM IV, composite RV) & 93 & 50.5\% & 5.26 & \$7.63M & $-$79.4\% \\
-    Var Swap (MFIV) & 78 & 62.8\% & 1.79 & \$5.62M & $-$98.6\% \\
-    Distribution & 85 & 47.1\% & $-$0.74 & $-$1.73M & $-$98.1\% \\
-    Logistic (OOS RV forecast) & 91 & 48.4\% & 5.31 & \$8.13M & $-$60.9\% \\
+    VRP (ATM IV, composite RV) & 188 & 46.3\% & 0.90 & \$8.91M & $-$99.8\% \\
+    Var Swap (MFIV) & 190 & 48.4\% & 1.06 & \$14.04M & $-$100.0\% \\
     \bottomrule
   \end{tabular}
   \vspace{0.5em}
   \normalsize
   \raggedright
   \footnotesize
-  Same backtest: delta-hedged straddles, \$1M notional, 22d hold, 25\% stop, 5\,bps cost. Logistic: expanding-window quantile RV forecast.
+  Same backtest: delta-hedged straddles, \$1M notional, hold to expiry (1--5d), 25\% stop, 5\,bps cost.
 \end{frame}
 
 \begin{frame}{FOMC Window Analysis}
@@ -321,7 +334,7 @@
   \end{adjustbox}\\
   \scriptsize \centering FOMC $\pm$7d vs non-FOMC across strategies. \\
   \footnotesize
-  \textbf{FOMC vs non-FOMC (VRP):} FOMC: 31 trades, 55\% win, \$3.44M, Sharpe 2.68; Non-FOMC: 57 trades, 46\% win, \$2.46M, Sharpe 1.02. Stronger in FOMC windows; IV bid up then mean-reverts.
+  \textbf{FOMC vs non-FOMC (VRP):} FOMC: 79 trades, 48\% win, $-$\$3.13M, Sharpe $-$0.19; Non-FOMC: 142 trades, 40\% win, \$2.78M, Sharpe 0.18. VRP weaker in FOMC windows.
 \end{frame}
 
 % ═══════════════════════════════════════════════════════════
@@ -335,7 +348,7 @@
   \end{adjustbox}\\
   \scriptsize \centering OOS cumulative PnL; walk-forward Sharpe by window. \\
   \footnotesize
-  \textbf{OOS (60/40 split):} In-sample: 51 trades, Sharpe 1.40, \$2.31M; Out-of-sample: 34 trades, Sharpe 7.05, \$3.27M. \textbf{Walk-forward:} 4 of 5 windows profitable; W3 (2016--18) includes Volmageddon.
+  \textbf{OOS (60/40 split):} In-sample: 115 trades, Sharpe 1.11, \$7.96M; Out-of-sample: 73 trades, Sharpe 0.45, \$956K. \textbf{Walk-forward:} 4 of 5 windows profitable; W5 (2020--23) negative.
 \end{frame}
 
 \begin{frame}{Stress Periods}
@@ -345,7 +358,7 @@
   \end{adjustbox}\\
   \scriptsize \centering Sharpe, PnL, max DD by stress episode. \\
   \footnotesize
-  \textbf{Selected episodes:} EU Debt, China/Oil, COVID, 2022: profitable; Volmageddon (2018): loss capped by 25\% stop; Taper Tantrum: small loss.
+  \textbf{Selected episodes:} Volmageddon, China/Oil, COVID: strong (Sharpe 6.96, 3.27, 4.70); 2022 rate hikes: negative (Sharpe $-$1.07).
 \end{frame}
 
 \begin{frame}{Volatility Regime}
@@ -355,7 +368,7 @@
   \end{adjustbox}\\
   \scriptsize \centering Performance by trailing 252d RV tercile. \\
   \footnotesize
-  \textbf{Regime (VRP):} Low vol: $-$3.29M, Sharpe $-$0.98; Medium vol: $-$10.93M, Sharpe $-$1.11; High vol: \$2.56M, Sharpe 2.28. Profitable only in high-vol regimes; premium largest when vol already elevated.
+  \textbf{Regime (VRP):} Low vol: \$9.13M, Sharpe 0.79; Medium vol: $-$\$1.21M, Sharpe $-$0.06; High vol: $-$\$5.71M, Sharpe $-$0.26. Most profitable in low-vol regimes.
 \end{frame}
 
 % ═══════════════════════════════════════════════════════════
@@ -369,7 +382,7 @@
   \end{adjustbox}\\
   \scriptsize \centering Z-threshold, hold days, transaction cost. \\
   \footnotesize
-  \textbf{Findings:} Z-threshold: Sharpe positive 0.5--2.0; peak near 1.25. Hold: shorter better (10d $\to$ Sharpe 67.2); 44d negative. Cost: robust 0--20\,bps.
+  \textbf{Findings:} Z-threshold: Sharpe positive at $z \leq 1.25$; degrades at $z > 1.5$. Hold: stable at 0.90 for 1--5d (weeklies). Cost: robust 0--20\,bps.
 \end{frame}
 
 \begin{frame}{Bootstrap Sharpe \& Yearly Breakdown}
@@ -386,7 +399,7 @@
         \includegraphics[width=\textwidth]{figures/20_yearly_breakdown.png}
       \end{adjustbox}
       \vspace{-0.3em}
-      \scriptsize Annual Sharpe, PnL, win rate, max DD (2011--2023). Profitable 9 of 13 years; \$7.63M cumulative.
+      \scriptsize Annual Sharpe, PnL, win rate, max DD (2011--2023). Profitable 6 of 13 years; \$8.91M cumulative.
     \end{column}
   \end{columns}
 \end{frame}
@@ -398,16 +411,16 @@
 \begin{frame}{Summary}
   \begin{itemize}
     \item VRP (IV $-$ forecast RV) is \textbf{tradeable} on SPX with delta-hedged straddles.
-    \item Sharpe 5.26, \$7.63M PnL (93 trades), 25\% stop $\Rightarrow$ max DD $-$79.4\% (vs 98\%+ without).
-    \item VRP dominates Var Swap and Distribution; strong OOS and in stress; regime-dependent (high-vol best).
+    \item Sharpe 0.90, \$8.91M PnL (188 trades); Var Swap: Sharpe 1.06, \$14.04M (190 trades). Max DD $\approx$ 100\% for both.
+    \item Var Swap outperforms VRP on Sharpe and PnL; strong in stress (Volmageddon, COVID); regime-dependent (low-vol best).
     \item \textbf{Logistic regression:} alternative RV forecast (weekly return quantiles $\to$ $E[z^2]$ $\to$ expected vol); same IV--RV signal and backtest; methodology in slides.
-    \item Robust to threshold and costs; sensitive to holding period (short preferred).
+    \item Robust to threshold and costs; hold to expiry (1--5d for weeklies).
   \end{itemize}
 \end{frame}
 
 \begin{frame}{Limitations}
   \begin{itemize}
-    \item Tail risk: 79\% max DD; stop assumes executable at cap.
+    \item Tail risk: $\approx$100\% max DD; stop assumes executable at cap.
     \item Amortized daily PnL in backtest $\Rightarrow$ reported Sharpe/drawdown approximate.
     \item Single underlying (SPX); one position at a time in backtest.
     \item Transaction cost (5\,bps) may be optimistic for stress periods.

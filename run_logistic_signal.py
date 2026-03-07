@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """
 Run the logistic-distribution RV forecast through the existing IV-RV signal
-and backtest stack.
+and backtest stack. Backtest holds only until option expiry (exdate from
+feature table when present, else capped at 5 trading days for weeklies).
 """
 
 from pathlib import Path
@@ -67,7 +68,7 @@ def main() -> None:
 
     signal_df = compute_vrp_signal(
         feature_aug,
-        iv_col="atm_iv_30d",
+        iv_col="atm_iv_at_expiry",
         rv_col="logistic_rv_forecast",
     )
 

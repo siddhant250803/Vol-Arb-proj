@@ -2,7 +2,7 @@
 # signals.py — Trading Signal Construction
 # ============================================================
 """
-Builds three families of trading signals:
+Builds trading signals:
 
     1. **Level Signal** — Variance Risk Premium (VRP)
        S = IV − forecast_RV ;  z-score normalised
@@ -10,15 +10,11 @@ Builds three families of trading signals:
     2. **Surface Relative-Value** — Skew & term-structure mispricing
        Compare implied vs physical downside probabilities
 
-    3. **Distribution-Based** — Risk-neutral vs physical distribution
-       Breeden-Litzenberger extraction vs logistic regression forecast
-
 All signals output a standardised z-score ∈ ℝ on each trading date.
 """
 
 import numpy as np
 import pandas as pd
-from scipy.stats import norm
 
 from src.config import (
     SIGNAL_ZSCORE_ENTRY,
@@ -30,7 +26,7 @@ from src.config import (
 # 1.  VARIANCE RISK PREMIUM (VRP) — Level Signal
 # ════════════════════════════════════════════════════════════
 
-def compute_vrp_signal(feature_df, iv_col="atm_iv_30d", rv_col=None):
+def compute_vrp_signal(feature_df, iv_col="atm_iv_at_expiry", rv_col=None):
     """
     Core signal: VRP = IV − forecast RV
 
@@ -101,7 +97,9 @@ def compute_vrp_signal(feature_df, iv_col="atm_iv_30d", rv_col=None):
     df.loc[df["vrp_zscore"] > SIGNAL_ZSCORE_ENTRY, "signal"] = 1    # short vol
     df.loc[df["vrp_zscore"] < -SIGNAL_ZSCORE_ENTRY, "signal"] = -1  # long vol
 
-    out = df[["date", iv_col, rv_use, "vrp", "vrp_zscore", "signal"]].copy()
+    base_cols = ["date", iv_col, rv_use, "vrp", "vrp_zscore", "signal"]
+    expiry_cols = [c for c in ["exdate_trade", "dte_trade"] if c in df.columns]
+    out = df[base_cols + expiry_cols].copy()
     out = out.rename(columns={iv_col: "iv", rv_use: "rv_forecast"})
     out = out.dropna(subset=["vrp_zscore"])
 
@@ -211,95 +209,7 @@ def compute_term_structure_signal(options_df):
 
 
 # ════════════════════════════════════════════════════════════
-# 3.  DISTRIBUTION-BASED SIGNAL
-# ════════════════════════════════════════════════════════════
-
-def compute_distribution_signal(spx_df, options_df, n_bins=10, lookback=252):
-    """
-    Compare risk-neutral distribution (from option prices) to
-    physical distribution (from historical returns).
-
-    Steps:
-        1. Bin standardised historical returns into n_bins buckets.
-        2. Compute physical probability per bin from trailing data.
-        3. Estimate risk-neutral probabilities from OTM option pricing.
-        4. Signal = sum of |P_RN − P_phys| in tail bins.
-
-    Parameters
-    ----------
-    spx_df : pd.DataFrame
-        Daily SPX with log_return.
-    options_df : pd.DataFrame
-        Cleaned options.
-    n_bins : int
-        Number of return bins.
-    lookback : int
-        Historical window for physical distribution.
-
-    Returns
-    -------
-    pd.DataFrame
-        Columns: date, dist_signal
-    """
-    ret = spx_df.set_index("date")["log_return"]
-
-    # Rolling mean and std for standardisation
-    roll_mean = ret.rolling(lookback, min_periods=60).mean()
-    roll_std = ret.rolling(lookback, min_periods=60).std()
-    std_ret = (ret - roll_mean) / roll_std
-
-    # Define fixed bins based on standard normal quantiles
-    bin_edges = np.linspace(-3, 3, n_bins + 1)
-
-    results = []
-    dates = std_ret.dropna().index
-
-    for i in range(lookback, len(dates)):
-        date = dates[i]
-        window = std_ret.iloc[i - lookback: i]
-
-        # Physical distribution: histogram of standardised returns
-        phys_counts, _ = np.histogram(window.values, bins=bin_edges)
-        phys_prob = phys_counts / phys_counts.sum()
-
-        # Risk-neutral proxy: use implied vol smile slope
-        # Simplified: use normal distribution with IV as scale
-        opts_day = options_df[options_df["date"] == date]
-        if len(opts_day) < 5:
-            continue
-
-        avg_iv = opts_day["impl_volatility"].median()
-        if np.isnan(avg_iv) or avg_iv <= 0:
-            continue
-
-        # Risk-neutral distribution (simplified Black-Scholes log-normal)
-        # Scale the bins by IV rather than realised vol (guard vs NaN/zero)
-        rs = roll_std.loc[date]
-        iv_scale = (avg_iv / rs) if (pd.notna(rs) and rs > 0) else 1.0
-        rn_bins = bin_edges * iv_scale
-        rn_prob = np.diff(norm.cdf(rn_bins))
-        rn_prob = rn_prob / rn_prob.sum()
-
-        # Signal: tail divergence (sum of |P_RN - P_phys| in tails)
-        tail_idx = list(range(2)) + list(range(n_bins - 2, n_bins))
-        tail_div = sum(abs(rn_prob[j] - phys_prob[j]) for j in tail_idx)
-
-        # Sign convention: positive if RN tails are heavier (crash protection is rich)
-        rn_tail = sum(rn_prob[j] for j in tail_idx)
-        phys_tail = sum(phys_prob[j] for j in tail_idx)
-        sign = 1 if rn_tail > phys_tail else -1
-
-        results.append({"date": date, "dist_signal": sign * tail_div})
-
-    out = pd.DataFrame(results)
-    if len(out) > 0:
-        out["date"] = pd.to_datetime(out["date"])
-    print(f"[signals] Distribution signal: {len(out)} dates computed.")
-    return out
-
-
-# ════════════════════════════════════════════════════════════
-# 4.  MASTER SIGNAL TABLE
+# 3.  MASTER SIGNAL TABLE
 # ════════════════════════════════════════════════════════════
 
 def build_signal_table(feature_df, options_df, spx_df):
@@ -331,15 +241,10 @@ def build_signal_table(feature_df, options_df, spx_df):
     skew = compute_skew_signal(options_df, spx_df)
     term = compute_term_structure_signal(options_df)
 
-    # ── Distribution signal ────────────────────────────────
-    dist = compute_distribution_signal(spx_df, options_df)
-
     # ── Merge ──────────────────────────────────────────────
     signals = vrp.copy()
     signals = signals.merge(skew, on="date", how="left")
     signals = signals.merge(term, on="date", how="left")
-    if len(dist) > 0:
-        signals = signals.merge(dist, on="date", how="left")
 
     signals = signals.sort_values("date").reset_index(drop=True)
     print(f"\n[signals] Signal table: {len(signals)} rows, "

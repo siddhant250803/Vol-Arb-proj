@@ -3,11 +3,12 @@
 # run_comparison.py — Head-to-Head Strategy Comparison
 # ============================================================
 """
-Compare the three signal families from the proposal:
+Compare the two signal families:
 
     Strategy 1 — VRP (Core):  ATM IV − forecast RV
     Strategy 2 — Variance Swap:  Model-free IV (MFIV) − forecast RV
-    Strategy 3 — Distribution:  RN vs physical tail divergence
+
+All strategies hold only until option expiry (Friday weeklies); no holding past expiry.
 
 Also analyses FOMC-window vs non-FOMC performance for each.
 
@@ -41,18 +42,14 @@ from src.config import (
 from src.data_loader import load_all_data
 from src.feature_engineering import build_feature_table
 from src.rv_models import run_all_rv_models
-from src.signals import (
-    compute_vrp_signal,
-    compute_skew_signal,
-    compute_term_structure_signal,
-    compute_distribution_signal,
-)
+from src.signals import compute_vrp_signal
 from src.backtest import run_backtest, trades_to_dataframe
 from src.performance import (
     sharpe_ratio, sortino_ratio, annualised_return,
     annualised_volatility, compute_drawdown, return_statistics,
     benchmark_returns_from_spx, benchmark_comparison,
     probabilistic_sharpe_ratio, trade_statistics,
+    returns_on_full_calendar,
 )
 
 warnings.filterwarnings("ignore")
@@ -68,67 +65,24 @@ except OSError:
 
 def _make_vrp_signal(feature_df):
     """Strategy 1: ATM IV − forecast RV."""
-    return compute_vrp_signal(feature_df, iv_col="atm_iv_30d")
+    return compute_vrp_signal(feature_df, iv_col="atm_iv_at_expiry")
 
 
 def _make_varswap_signal(feature_df):
     """
     Strategy 2: Model-free IV (variance swap) − forecast RV.
-    Uses mfiv_vol_30d as the IV measure instead of ATM IV.
+    Uses mfiv_vol_at_expiry as the IV measure instead of ATM IV.
     """
-    if "mfiv_vol_30d" not in feature_df.columns:
-        print("[comparison] mfiv_vol_30d not available — skipping var-swap strategy.")
+    if "mfiv_vol_at_expiry" not in feature_df.columns:
+        print("[comparison] mfiv_vol_at_expiry not available — skipping var-swap strategy.")
         return None
 
-    df = feature_df.dropna(subset=["mfiv_vol_30d"])
+    df = feature_df.dropna(subset=["mfiv_vol_at_expiry"])
     if len(df) < 100:
         print("[comparison] Not enough MFIV data — skipping var-swap strategy.")
         return None
 
-    return compute_vrp_signal(df, iv_col="mfiv_vol_30d")
-
-
-def _make_distribution_signal(feature_df, spx_df, options_df):
-    """
-    Strategy 3: Distribution-based.
-    Convert the continuous dist_signal into a discrete ±1/0 trading signal
-    using z-score thresholding (same framework as VRP).
-    """
-    dist_raw = compute_distribution_signal(spx_df, options_df)
-    if dist_raw.empty or len(dist_raw) < 100:
-        print("[comparison] Not enough distribution signal data.")
-        return None
-
-    df = dist_raw.copy()
-    df["dist_mean"] = df["dist_signal"].rolling(SIGNAL_LOOKBACK, min_periods=60).mean()
-    df["dist_std"] = df["dist_signal"].rolling(SIGNAL_LOOKBACK, min_periods=60).std()
-    df["vrp_zscore"] = (
-        (df["dist_signal"] - df["dist_mean"])
-        / df["dist_std"].replace(0, np.nan)
-    )
-
-    # Signal: positive dist_signal (RN tails heavy) → short vol (sell overpriced protection)
-    #         negative dist_signal (RN tails light) → long vol  (buy cheap protection)
-    df["signal"] = 0
-    df.loc[df["vrp_zscore"] > SIGNAL_ZSCORE_ENTRY, "signal"] = 1    # short vol
-    df.loc[df["vrp_zscore"] < -SIGNAL_ZSCORE_ENTRY, "signal"] = -1  # long vol
-
-    # Need iv and rv_forecast columns for the backtester
-    # Merge from the feature table
-    feat = feature_df[["date", "atm_iv_30d"]].dropna()
-    df = df.merge(feat, on="date", how="left")
-    df = df.rename(columns={"atm_iv_30d": "iv"})
-    df["rv_forecast"] = df["iv"]  # placeholder
-    df["vrp"] = df["dist_signal"]
-
-    df = df.dropna(subset=["vrp_zscore", "iv"])
-
-    n_short = (df["signal"] == 1).sum()
-    n_long = (df["signal"] == -1).sum()
-    print(f"[comparison] Distribution signal: {len(df)} days — "
-          f"short_vol={n_short}, long_vol={n_long}")
-
-    return df[["date", "iv", "rv_forecast", "vrp", "vrp_zscore", "signal"]]
+    return compute_vrp_signal(df, iv_col="mfiv_vol_at_expiry")
 
 
 # ════════════════════════════════════════════════════════════
@@ -140,7 +94,15 @@ def _summarise(name, trades, pnl_df, spx_df=None):
     if pnl_df.empty or len(pnl_df) < 5:
         return {"strategy": name, "n_trades": 0}
 
-    dr = pnl_df["daily_return"].dropna()
+    # Use full calendar (flat days = 0) so Sharpe/ann return are not inflated
+    if spx_df is not None:
+        dr = returns_on_full_calendar(pnl_df, spx_df)
+        dr = dr.dropna()
+    else:
+        dr = pnl_df["daily_return"].dropna()
+    if len(dr) < 2:
+        return {"strategy": name, "n_trades": len(trades)}
+
     trades_df = trades_to_dataframe(trades)
     wins = sum(1 for t in trades if t.net_pnl > 0)
     total_pnl = sum(t.net_pnl for t in trades)
@@ -170,12 +132,9 @@ def _summarise(name, trades, pnl_df, spx_df=None):
         out["avg_holding_days"] = np.nan
         out["trades_per_year"] = np.nan
 
-    # Benchmark comparison when SPX available
+    # Benchmark comparison when SPX available (use calendar-aligned strategy returns)
     if spx_df is not None and len(dr) > 10:
-        if "date" in pnl_df.columns:
-            strat_ret = pnl_df.set_index("date")["daily_return"].dropna()
-        else:
-            strat_ret = dr
+        strat_ret = dr
         start_date, end_date = strat_ret.index.min(), strat_ret.index.max()
         bench_ret = benchmark_returns_from_spx(spx_df, start_date, end_date)
         if len(bench_ret) > 0:
@@ -207,6 +166,19 @@ def _fomc_split(signal_df, spx_df, feature_df, strategy_name):
             results[label] = {"n_trades": 0}
             continue
         trades, pnl_df = run_backtest(sub, spx_df)
+
+        # Reindex to full calendar (flat days = 0) for consistent Sharpe/return
+        if not pnl_df.empty and spx_df is not None:
+            ret_series = returns_on_full_calendar(pnl_df, spx_df)
+            if not ret_series.empty:
+                pnl_df = pd.DataFrame({
+                    "date": ret_series.index,
+                    "daily_return": ret_series.values,
+                })
+                pnl_df["daily_pnl"] = pnl_df["daily_return"] * 1e6  # notional for display
+                pnl_df["cumulative_pnl"] = pnl_df["daily_pnl"].cumsum()
+                pnl_df["cumulative_return"] = (1 + pnl_df["daily_return"]).cumprod() - 1
+
         results[label] = _summarise(f"{strategy_name}_{label}", trades, pnl_df, spx_df=spx_df)
 
     return results
@@ -348,7 +320,7 @@ def plot_strategy_comparison(results, pnl_dict, spx_df=None):
                 cell.set_text_props(color="white", fontweight="bold")
     ax.set_title("Performance Summary (PSR = Prob. Sharpe > 0)", fontsize=12, fontweight="bold")
 
-    fig.suptitle("Strategy Comparison: VRP vs Variance Swap vs Distribution (vs Buy & Hold SPX)",
+    fig.suptitle("Strategy Comparison: VRP vs Variance Swap (vs Buy & Hold SPX)",
                  fontsize=16, fontweight="bold", y=1.01)
     fig.tight_layout()
     _save(fig, "13_strategy_comparison")
@@ -417,7 +389,7 @@ def plot_fomc_analysis(fomc_results):
 
 def main():
     print("\n" + "=" * 65)
-    print("  STRATEGY COMPARISON — VRP vs Variance Swap vs Distribution")
+    print("  STRATEGY COMPARISON — VRP vs Variance Swap")
     print("  + FOMC Window Analysis (±7 days)")
     print("=" * 65 + "\n")
 
@@ -439,7 +411,6 @@ def main():
 
     sig_vrp = _make_vrp_signal(augmented)
     sig_varswap = _make_varswap_signal(augmented)
-    sig_dist = _make_distribution_signal(augmented, data["spx"], data["options"])
 
     # ── Backtest each strategy ─────────────────────────────
     print("\n" + "─" * 50)
@@ -452,7 +423,6 @@ def main():
     for name, sig_df in [
         ("VRP (ATM IV)", sig_vrp),
         ("Var Swap (MFIV)", sig_varswap),
-        ("Distribution", sig_dist),
     ]:
         if sig_df is None or sig_df.empty:
             results.append({"strategy": name, "n_trades": 0})
@@ -472,7 +442,6 @@ def main():
     for name, sig_df in [
         ("VRP (ATM IV)", sig_vrp),
         ("Var Swap (MFIV)", sig_varswap),
-        ("Distribution", sig_dist),
     ]:
         if sig_df is None or sig_df.empty:
             continue
@@ -488,7 +457,7 @@ def main():
 
     report_lines = []
     report_lines.append("=" * 65)
-    report_lines.append("  Strategy Comparison — VRP vs Variance Swap vs Distribution")
+    report_lines.append("  Strategy Comparison — VRP vs Variance Swap")
     report_lines.append("=" * 65)
     report_lines.append("")
 

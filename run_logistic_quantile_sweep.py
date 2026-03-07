@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """
 Sweep logistic quantile counts and compare downstream strategy performance.
+Backtest holds only until option expiry (exdate in signal when present, else max 5d).
 """
 
 from pathlib import Path
@@ -69,7 +70,7 @@ def main() -> None:
 
         signal_df = compute_vrp_signal(
             feature_aug,
-            iv_col="atm_iv_30d",
+            iv_col="atm_iv_at_expiry",
             rv_col="logistic_rv_forecast",
         )
         trades, pnl_df = run_backtest(signal_df, spx_df)

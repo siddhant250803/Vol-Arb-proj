@@ -19,11 +19,9 @@ from scipy.interpolate import interp1d
 from src.config import (
     COL,
     ATM_DELTA_BAND,
-    CONSTANT_MATURITY_DAYS,
     VARIANCE_SWAP_STRIKE_BAND,
     TRADING_DAYS_PER_YEAR,
     RV_HORIZONS,
-    RV_FORECAST_HORIZON,
     ANNUALISATION_FACTOR,
     FOMC_DATES,
 )
@@ -34,39 +32,36 @@ from src.config import (
 # ════════════════════════════════════════════════════════════
 
 # ────────────────────────────────────────────────────────────
-# A1.  ATM Implied Volatility (per date)
+# A1.  ATM Implied Volatility (at expiry horizon)
 # ────────────────────────────────────────────────────────────
-def compute_atm_iv(options_df):
+def compute_atm_iv_at_expiry(options_df, expiry_df):
     """
-    For each trading date, extract the ATM implied volatility by:
-      1. Selecting options near-the-money (|delta| in [0.40, 0.60]).
-      2. Averaging call and put IV weighted by inverse distance to |delta|=0.50.
-      3. Interpolating across expiries to a constant 30-day maturity.
+    For each trading date, extract ATM IV at the time-to-expiry of the
+    tradeable option (dte_trade). Matches IV to the actual holding period.
 
     Parameters
     ----------
     options_df : pd.DataFrame
         Cleaned options with columns: date, dte, delta, impl_volatility, cp_flag.
+    expiry_df : pd.DataFrame
+        Columns: date, exdate_trade, dte_trade (from compute_tradeable_expiry).
 
     Returns
     -------
     pd.DataFrame
-        Columns: date, atm_iv_30d
-        One row per trading day.
+        Columns: date, atm_iv_at_expiry
     """
+    if expiry_df.empty:
+        return pd.DataFrame(columns=["date", "atm_iv_at_expiry"])
+
     df = options_df.copy()
     df["abs_delta"] = df[COL["delta"]].abs()
-
-    # Keep near-ATM options
     atm_mask = (df["abs_delta"] >= 0.50 - ATM_DELTA_BAND) & (
         df["abs_delta"] <= 0.50 + ATM_DELTA_BAND
     )
     atm = df.loc[atm_mask].copy()
-
-    # Weight by closeness to |delta| = 0.50
     atm["w"] = 1.0 / (1e-6 + (atm["abs_delta"] - 0.50).abs())
 
-    # Weighted average IV per (date, dte)
     def _wavg(g):
         return np.average(g[COL["iv"]], weights=g["w"])
 
@@ -74,39 +69,40 @@ def compute_atm_iv(options_df):
         _wavg, include_groups=False,
     )
     grouped = grouped_raw.reset_index()
-    # The value column may be named 0 or something else — rename reliably
     grouped.columns = ["date", "dte", "atm_iv"]
 
-    # Interpolate to constant 30-day maturity per date
     results = []
-    for date, grp in grouped.groupby("date"):
+    for _, exp_row in expiry_df.iterrows():
+        date, dte_trade = exp_row["date"], exp_row["dte_trade"]
+        if pd.isna(dte_trade):
+            continue
+        dte_trade = int(dte_trade)
+        grp = grouped[grouped["date"] == date]
+        if grp.empty:
+            continue
         grp = grp.sort_values("dte")
-        if len(grp) < 2:
-            # Cannot interpolate with fewer than 2 tenors — use single value
-            if len(grp) == 1:
-                results.append({"date": date, "atm_iv_30d": grp["atm_iv"].iloc[0]})
-            continue
-        try:
-            f = interp1d(
-                grp["dte"].values,
-                grp["atm_iv"].values,
-                kind="linear",
-                fill_value="extrapolate",
-            )
-            iv_30 = float(f(CONSTANT_MATURITY_DAYS))
-            # Clip to reasonable range to avoid extrapolation artefacts
-            if 0.01 < iv_30 < 2.0:
-                results.append({"date": date, "atm_iv_30d": iv_30})
-        except Exception:
-            continue
-
-    if not results:
-        print("[features] ATM IV (30d): 0 dates — no valid ATM options found.")
-        return pd.DataFrame(columns=["date", "atm_iv_30d"])
+        dtes = grp["dte"].values
+        ivs = grp["atm_iv"].values
+        if len(dtes) == 1:
+            iv_val = float(ivs[0])
+        else:
+            try:
+                f = interp1d(
+                    dtes.astype(float),
+                    ivs.astype(float),
+                    kind="linear",
+                    fill_value="extrapolate",
+                )
+                iv_val = float(f(dte_trade))
+            except Exception:
+                continue
+        if 0.01 < iv_val < 2.0:
+            results.append({"date": date, "atm_iv_at_expiry": iv_val})
 
     out = pd.DataFrame(results)
-    out["date"] = pd.to_datetime(out["date"])
-    print(f"[features] ATM IV (30d): {len(out)} dates computed.")
+    if len(out) > 0:
+        out["date"] = pd.to_datetime(out["date"])
+    print(f"[features] ATM IV (at expiry): {len(out)} dates computed.")
     return out
 
 
@@ -206,46 +202,60 @@ def compute_model_free_iv(options_df, rf_series=None):
     return out
 
 
-def compute_mfiv_30d(mfiv_df):
+def compute_mfiv_at_expiry(mfiv_df, expiry_df):
     """
-    Interpolate model-free implied variance to a constant 30-day maturity.
+    Interpolate model-free implied variance to the tradeable expiry (dte_trade)
+    for each date. Matches MFIV to the actual holding period.
 
     Parameters
     ----------
     mfiv_df : pd.DataFrame
-        Output of ``compute_model_free_iv()``.
+        Output of ``compute_model_free_iv()`` (date, dte, mfiv, mfiv_vol).
+    expiry_df : pd.DataFrame
+        Columns: date, exdate_trade, dte_trade.
 
     Returns
     -------
     pd.DataFrame
-        Columns: date, mfiv_30d, mfiv_vol_30d
+        Columns: date, mfiv_at_expiry, mfiv_vol_at_expiry
     """
+    if mfiv_df.empty or expiry_df.empty:
+        return pd.DataFrame(columns=["date", "mfiv_at_expiry", "mfiv_vol_at_expiry"])
+
     results = []
-    for date, grp in mfiv_df.groupby("date"):
-        grp = grp.sort_values("dte")
+    for _, exp_row in expiry_df.iterrows():
+        date, dte_trade = exp_row["date"], exp_row["dte_trade"]
+        if pd.isna(dte_trade):
+            continue
+        dte_trade = int(dte_trade)
+        grp = mfiv_df[mfiv_df["date"] == date].sort_values("dte")
         if len(grp) < 2:
-            continue
-        try:
-            f_var = interp1d(
-                grp["dte"].values,
-                grp["mfiv"].values,
-                kind="linear",
-                fill_value="extrapolate",
-            )
-            var_30 = float(f_var(CONSTANT_MATURITY_DAYS))
-            if var_30 > 0:
-                results.append({
-                    "date": date,
-                    "mfiv_30d": var_30,
-                    "mfiv_vol_30d": np.sqrt(var_30),
-                })
-        except Exception:
-            continue
+            if len(grp) == 1:
+                var_val = grp["mfiv"].iloc[0]
+            else:
+                continue
+        else:
+            try:
+                f_var = interp1d(
+                    grp["dte"].values.astype(float),
+                    grp["mfiv"].values.astype(float),
+                    kind="linear",
+                    fill_value="extrapolate",
+                )
+                var_val = float(f_var(dte_trade))
+            except Exception:
+                continue
+        if var_val > 0:
+            results.append({
+                "date": date,
+                "mfiv_at_expiry": var_val,
+                "mfiv_vol_at_expiry": np.sqrt(var_val),
+            })
 
     out = pd.DataFrame(results)
     if len(out) > 0:
         out["date"] = pd.to_datetime(out["date"])
-    print(f"[features] MFIV 30d: {len(out)} dates interpolated.")
+    print(f"[features] MFIV (at expiry): {len(out)} dates interpolated.")
     return out
 
 
@@ -333,40 +343,60 @@ def compute_bipower_variation(spx_df, window=22):
 
 
 # ────────────────────────────────────────────────────────────
-# B3.  Forward-Realised Variance  (label for forecasting)
+# B3.  Forward-Realised Variance at Expiry (label for forecasting)
 # ────────────────────────────────────────────────────────────
-def compute_forward_rv(spx_df, horizon=None):
+def compute_forward_rv_at_expiry(spx_df, expiry_df):
     """
-    Compute the *future* realised variance over the next ``horizon`` days.
-    This is the target variable for RV forecast models.
-    Default horizon matches config.RV_FORECAST_HORIZON (e.g. 22 ≈ 1 month).
+    Compute the *future* realised variance over the next dte_trade days for each
+    date. Matches the actual holding period to expiry. This is the target for
+    RV forecast models and for ex-post evaluation.
 
     Parameters
     ----------
     spx_df : pd.DataFrame
         Must have columns: date, log_return.
-    horizon : int
-        Number of trading days forward.
+    expiry_df : pd.DataFrame
+        Columns: date, exdate_trade, dte_trade.
 
     Returns
     -------
     pd.DataFrame
-        Columns: date, fwd_rv  (annualised)
+        Columns: date, fwd_rv, fwd_rvol (annualised)
     """
-    if horizon is None:
-        horizon = RV_FORECAST_HORIZON
-    df = spx_df[["date", "log_return"]].copy()
-    return_sq = df["log_return"].values ** 2
-    n = len(return_sq)
-    fwd_rv = np.full(n, np.nan)
-    for i in range(n - horizon):
-        fwd_rv[i] = return_sq[i + 1: i + 1 + horizon].sum() * (ANNUALISATION_FACTOR / horizon)
+    if expiry_df.empty:
+        return pd.DataFrame(columns=["date", "fwd_rv", "fwd_rvol"])
 
-    df["fwd_rv"] = fwd_rv
-    df["fwd_rvol"] = np.sqrt(np.maximum(fwd_rv, 0))
-    df = df[["date", "fwd_rv", "fwd_rvol"]].dropna()
-    print(f"[features] Forward RV ({horizon}d): {len(df)} rows.")
-    return df
+    df = spx_df[["date", "log_return"]].copy()
+    df["date"] = pd.to_datetime(df["date"])
+    df = df.sort_values("date").reset_index(drop=True)
+    return_sq = df["log_return"].values ** 2
+    date_to_idx = {d: i for i, d in enumerate(df["date"])}
+
+    results = []
+    for _, exp_row in expiry_df.iterrows():
+        date, dte_trade = exp_row["date"], exp_row["dte_trade"]
+        if pd.isna(dte_trade) or dte_trade <= 0:
+            continue
+        dte_trade = int(dte_trade)
+        date = pd.to_datetime(date)
+        if date not in date_to_idx:
+            continue
+        idx = date_to_idx[date]
+        if idx + dte_trade >= len(df):
+            continue
+        fwd_sum = return_sq[idx + 1: idx + 1 + dte_trade].sum()
+        fwd_rv = fwd_sum * (ANNUALISATION_FACTOR / dte_trade)
+        results.append({
+            "date": date,
+            "fwd_rv": fwd_rv,
+            "fwd_rvol": np.sqrt(max(fwd_rv, 0)),
+        })
+
+    out = pd.DataFrame(results)
+    if len(out) > 0:
+        out["date"] = pd.to_datetime(out["date"])
+    print(f"[features] Forward RV (at expiry): {len(out)} rows.")
+    return out
 
 
 # ════════════════════════════════════════════════════════════
@@ -408,6 +438,34 @@ def add_event_flags(df, date_col="date"):
     return out
 
 
+# ────────────────────────────────────────────────────────────
+# D0.  Tradeable Expiry (for Friday-expiring weeklies)
+# ────────────────────────────────────────────────────────────
+def compute_tradeable_expiry(options_df):
+    """
+    For each date, get the exdate of the shortest-dated option in range
+    (the one we would trade). Options expire every Friday.
+
+    Parameters
+    ----------
+    options_df : pd.DataFrame
+        Cleaned options with date, exdate, dte.
+
+    Returns
+    -------
+    pd.DataFrame
+        Columns: date, exdate_trade, dte_trade
+    """
+    if options_df.empty or "exdate" not in options_df.columns:
+        return pd.DataFrame(columns=["date", "exdate_trade", "dte_trade"])
+    idx = options_df.groupby(COL["date"])["dte"].idxmin()
+    out = options_df.loc[idx, [COL["date"], COL["exdate"], "dte"]].drop_duplicates()
+    out = out.rename(columns={COL["exdate"]: "exdate_trade", "dte": "dte_trade"})
+    out = out[[COL["date"], "exdate_trade", "dte_trade"]].reset_index(drop=True)
+    print(f"[features] Tradeable expiry: {len(out)} dates with exdate_trade.")
+    return out
+
+
 # ════════════════════════════════════════════════════════════
 # SECTION D:  MASTER FEATURE TABLE
 # ════════════════════════════════════════════════════════════
@@ -433,24 +491,27 @@ def build_feature_table(options_df, spx_df, rf_series=None):
         - spx_close, log_return
         - rv_daily, rv_weekly, rv_monthly, rvol_*
         - bv_monthly
-        - fwd_rv, fwd_rvol  (forward-looking labels)
-        - atm_iv_30d
-        - mfiv_30d, mfiv_vol_30d
+        - fwd_rv, fwd_rvol  (forward RV at expiry horizon)
+        - atm_iv_at_expiry
+        - mfiv_at_expiry, mfiv_vol_at_expiry
         - fomc_window
     """
     print("\n" + "=" * 60)
     print("  BUILDING MASTER FEATURE TABLE")
     print("=" * 60)
 
+    # ── Tradeable expiry (needed for IV/RV at expiry horizon) ─
+    expiry_df = compute_tradeable_expiry(options_df)
+
     # ── Realised volatility ────────────────────────────────
     rv = compute_realized_variance(spx_df)
     bv = compute_bipower_variation(spx_df)
-    fwd = compute_forward_rv(spx_df)
+    fwd = compute_forward_rv_at_expiry(spx_df, expiry_df)
 
-    # ── Implied volatility ─────────────────────────────────
-    atm = compute_atm_iv(options_df)
+    # ── Implied volatility (at expiry horizon) ──────────────
+    atm = compute_atm_iv_at_expiry(options_df, expiry_df)
     mfiv_raw = compute_model_free_iv(options_df, rf_series=rf_series)
-    mfiv = compute_mfiv_30d(mfiv_raw) if len(mfiv_raw) > 0 else pd.DataFrame()
+    mfiv = compute_mfiv_at_expiry(mfiv_raw, expiry_df) if len(mfiv_raw) > 0 else pd.DataFrame()
 
     # ── Merge everything on date ───────────────────────────
     master = rv.copy()
@@ -459,6 +520,8 @@ def build_feature_table(options_df, spx_df, rf_series=None):
     master = master.merge(atm, on="date", how="left")
     if len(mfiv) > 0:
         master = master.merge(mfiv, on="date", how="left")
+    if len(expiry_df) > 0:
+        master = master.merge(expiry_df, on="date", how="left")
 
     # ── Event flags ────────────────────────────────────────
     master = add_event_flags(master)

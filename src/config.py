@@ -103,7 +103,8 @@ SIGNAL_ZSCORE_ENTRY = 1.0            # enter when |z| > threshold
 SIGNAL_LOOKBACK = 252                # rolling window for z-score
 HEDGE_FREQUENCY = "daily"            # delta-hedge frequency
 TRANSACTION_COST_BPS = 5             # one-way cost in basis points
-POSITION_HOLD_DAYS = 22              # default holding period
+POSITION_HOLD_DAYS = 5               # max hold for Friday-expiring weeklies; capped at days to next Fri
+MAX_HOLD_DAYS_WEEKLIES = 5           # do not test hold_days > this in param sweeps (options expire weekly)
 STOP_LOSS_PCT = 0.25                 # exit when unrealized loss reaches 25% of that trade's value
 
 # ────────────────────────────────────────────────────────────

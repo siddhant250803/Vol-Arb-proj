@@ -124,13 +124,13 @@ def plot_iv_vs_rv(feature_df):
     """
     fig, ax = plt.subplots(figsize=FIGURE_SIZE)
 
-    df = feature_df.dropna(subset=["atm_iv_30d", "rvol_monthly"])
+    df = feature_df.dropna(subset=["atm_iv_at_expiry", "rvol_monthly"])
 
-    ax.plot(df["date"], df["atm_iv_30d"], label="ATM IV (30d)", lw=1.2, color=PLOT_COLORS["700"])
+    ax.plot(df["date"], df["atm_iv_at_expiry"], label="ATM IV (at expiry)", lw=1.2, color=PLOT_COLORS["700"])
     ax.plot(df["date"], df["rvol_monthly"], label="Realised Vol (22d)", lw=1.2, color=PLOT_PRIMARY)
     ax.fill_between(
         df["date"],
-        df["atm_iv_30d"],
+        df["atm_iv_at_expiry"],
         df["rvol_monthly"],
         alpha=0.15,
         color=PLOT_NEUTRAL,
@@ -223,7 +223,7 @@ def plot_vrp_signal(signal_df):
 
 def plot_skew_and_term_signals(signal_df):
     """Plot skew and term-structure signals if available."""
-    cols = [c for c in ["skew_signal", "term_signal", "dist_signal"]
+    cols = [c for c in ["skew_signal", "term_signal"]
             if c in signal_df.columns]
     if not cols:
         return None
@@ -235,9 +235,8 @@ def plot_skew_and_term_signals(signal_df):
     titles = {
         "skew_signal": "Skew Mispricing Signal",
         "term_signal": "Term-Structure Signal (Short − Long IV)",
-        "dist_signal": "Distribution-Based Signal",
     }
-    colors = {k: v for k, v in zip(["skew_signal", "term_signal", "dist_signal"], PLOT_PALETTE[:3])}
+    colors = {k: v for k, v in zip(["skew_signal", "term_signal"], PLOT_PALETTE[:2])}
 
     for ax, col in zip(axes, cols):
         data = signal_df.dropna(subset=[col])
@@ -385,7 +384,7 @@ def plot_robustness_subperiods(subperiod_df):
 
 
 def plot_parameter_sensitivity(param_df):
-    """Heatmap of Sharpe across holding period × cost grid."""
+    """Heatmap of Sharpe across holding period × cost grid. Hold days ≤ expiry (weeklies: max 5d)."""
     if param_df.empty:
         return None
 
@@ -403,10 +402,10 @@ def plot_parameter_sensitivity(param_df):
         linewidths=0.5,
         ax=ax,
     )
-    ax.set_title("Sharpe Ratio: Holding Period × Transaction Cost",
+    ax.set_title("Sharpe Ratio: Hold Days (≤ expiry) × Transaction Cost",
                  fontsize=14, fontweight="bold")
     ax.set_xlabel("Transaction Cost (bps)")
-    ax.set_ylabel("Holding Period (days)")
+    ax.set_ylabel("Hold days (≤ option expiry)")
 
     fig.tight_layout()
     return _save(fig, "11_parameter_sensitivity")
@@ -431,9 +430,9 @@ def plot_summary_dashboard(spx_df, feature_df, signal_df, pnl_df, report):
 
     # Panel 2: IV vs RV
     ax2 = fig.add_subplot(gs[0, 1])
-    df2 = feature_df.dropna(subset=["atm_iv_30d", "rvol_monthly"])
+    df2 = feature_df.dropna(subset=["atm_iv_at_expiry", "rvol_monthly"])
     if len(df2) > 0:
-        ax2.plot(df2["date"], df2["atm_iv_30d"], lw=0.7, label="IV", color=PLOT_COLORS["700"])
+        ax2.plot(df2["date"], df2["atm_iv_at_expiry"], lw=0.7, label="IV", color=PLOT_COLORS["700"])
         ax2.plot(df2["date"], df2["rvol_monthly"], lw=0.7, label="RV", color=PLOT_PRIMARY)
         ax2.legend(fontsize=8)
     ax2.set_title("IV vs RV", fontsize=11, fontweight="bold")

@@ -16,5 +16,16 @@ __pycache__/
 # Large data files (too big for GitHub; keep locally)
 Group 4 MS&E244/
 
+# LaTeX build artifacts
+*.aux
+*.log
+*.fls
+*.fdb_latexmk
+*.out
+*.nav
+*.snm
+*.synctex.gz
+*.toc
+
 # Misc
 *.docx

@@ -2,10 +2,11 @@
 # performance.py — Performance Metrics & Robustness Analysis
 # ============================================================
 """
-Computes standard strategy-evaluation metrics:
+Computes standard strategy-evaluation metrics using empyrical
+(Quantopian's backtesting library) for Sharpe, Sortino, drawdown,
+Calmar, and related risk/return metrics.
 
-    - Sharpe ratio, Sortino ratio
-    - Maximum drawdown, Calmar ratio
+Also includes:
     - Skewness / kurtosis of returns
     - Win rate, average trade PnL
     - Turnover / capacity estimates
@@ -17,59 +18,70 @@ by the backtester.
 
 import numpy as np
 import pandas as pd
+import empyrical as ep
 
 from src.config import TRADING_DAYS_PER_YEAR, NOTIONAL_CAPITAL
 
 
 # ════════════════════════════════════════════════════════════
-# 1.  RETURN-LEVEL METRICS
+# 1.  RETURN-LEVEL METRICS (via empyrical)
 # ════════════════════════════════════════════════════════════
 
+def _to_series(x):
+    """Ensure input is a pd.Series for empyrical."""
+    if isinstance(x, np.ndarray):
+        return pd.Series(x)
+    return pd.Series(x) if not isinstance(x, pd.Series) else x
+
+
 def annualised_return(daily_returns):
-    """Annualised geometric return from a series of daily returns."""
-    total = (1 + daily_returns).prod()
-    n_years = len(daily_returns) / TRADING_DAYS_PER_YEAR
-    if n_years <= 0:
+    """Annualised geometric return (CAGR) via empyrical."""
+    r = _to_series(daily_returns).dropna()
+    if len(r) < 2:
         return 0.0
-    return total ** (1.0 / n_years) - 1.0
+    val = ep.annual_return(r, period="daily", annualization=TRADING_DAYS_PER_YEAR)
+    return float(val) if not (isinstance(val, float) and np.isnan(val)) else 0.0
 
 
 def annualised_volatility(daily_returns):
-    """Annualised volatility (standard deviation) of daily returns."""
-    return daily_returns.std() * np.sqrt(TRADING_DAYS_PER_YEAR)
+    """Annualised volatility via empyrical."""
+    r = _to_series(daily_returns).dropna()
+    if len(r) < 2:
+        return 0.0
+    val = ep.annual_volatility(r, period="daily", annualization=TRADING_DAYS_PER_YEAR)
+    return float(val) if not (isinstance(val, float) and np.isnan(val)) else 0.0
 
 
 def sharpe_ratio(daily_returns, risk_free_annual=0.0):
     """
-    Annualised Sharpe ratio.
+    Annualised Sharpe ratio via empyrical.
 
     Parameters
     ----------
     daily_returns : pd.Series or np.ndarray
     risk_free_annual : float
-        Annualised risk-free rate.
+        Annualised risk-free rate (converted to daily for empyrical).
     """
-    ann_ret = annualised_return(daily_returns)
-    ann_vol = annualised_volatility(daily_returns)
-    if ann_vol == 0:
+    r = _to_series(daily_returns).dropna()
+    if len(r) < 2:
         return 0.0
-    return (ann_ret - risk_free_annual) / ann_vol
+    risk_free_daily = risk_free_annual / TRADING_DAYS_PER_YEAR
+    val = ep.sharpe_ratio(r, risk_free=risk_free_daily, period="daily", annualization=TRADING_DAYS_PER_YEAR)
+    if val is None or (isinstance(val, float) and np.isnan(val)):
+        return 0.0
+    return float(val)
 
 
 def sortino_ratio(daily_returns, risk_free_annual=0.0):
-    """
-    Sortino ratio: penalises only downside volatility.
-
-    Downside deviation = std of returns below zero (annualised).
-    """
-    ann_ret = annualised_return(daily_returns)
-    downside = daily_returns[daily_returns < 0]
-    if len(downside) == 0:
+    """Sortino ratio via empyrical (penalises only downside volatility)."""
+    r = _to_series(daily_returns).dropna()
+    if len(r) < 2:
         return np.inf
-    dd = downside.std() * np.sqrt(TRADING_DAYS_PER_YEAR)
-    if dd == 0:
+    risk_free_daily = risk_free_annual / TRADING_DAYS_PER_YEAR
+    val = ep.sortino_ratio(r, required_return=risk_free_daily, period="daily", annualization=TRADING_DAYS_PER_YEAR)
+    if val is None or (isinstance(val, float) and np.isnan(val)):
         return np.inf
-    return (ann_ret - risk_free_annual) / dd
+    return float(val)
 
 
 # ════════════════════════════════════════════════════════════
@@ -79,6 +91,7 @@ def sortino_ratio(daily_returns, risk_free_annual=0.0):
 def compute_drawdown(daily_returns):
     """
     Compute the drawdown series and max drawdown.
+    Uses empyrical for max_drawdown; builds series for plotting.
 
     Parameters
     ----------
@@ -92,17 +105,19 @@ def compute_drawdown(daily_returns):
         max_dd_start    : date/index when the peak before max DD occurred
         max_dd_end      : date/index when max drawdown was reached
     """
-    cum = (1 + daily_returns).cumprod()
+    r = _to_series(daily_returns).dropna()
+    if r.empty:
+        return {"drawdown_series": pd.Series(), "max_drawdown": 0.0, "max_dd_start": None, "max_dd_end": None}
+
+    cum = (1 + r).cumprod()
     peak = cum.cummax()
-    # Guard against peak == 0 (e.g. if cumulative return hits zero)
     dd = np.where(peak > 1e-12, (cum - peak) / peak, 0.0)
-    dd = pd.Series(dd, index=daily_returns.index)
+    dd = pd.Series(dd, index=r.index)
 
-    max_dd = dd.min()
-    max_dd_end = dd.idxmin()
-
-    # Start of the drawdown = most recent peak before the trough
-    max_dd_start = cum.loc[:max_dd_end].idxmax()
+    max_dd_val = ep.max_drawdown(r)
+    max_dd = float(max_dd_val) if max_dd_val is not None and not np.isnan(max_dd_val) else dd.min()
+    max_dd_end = dd.idxmin() if len(dd) > 0 else None
+    max_dd_start = cum.loc[:max_dd_end].idxmax() if max_dd_end is not None else None
 
     return {
         "drawdown_series": dd,
@@ -113,13 +128,14 @@ def compute_drawdown(daily_returns):
 
 
 def calmar_ratio(daily_returns):
-    """Calmar ratio = annualised return / |max drawdown|."""
-    ann_ret = annualised_return(daily_returns)
-    dd_info = compute_drawdown(daily_returns)
-    max_dd = abs(dd_info["max_drawdown"])
-    if max_dd == 0:
+    """Calmar ratio via empyrical (annual return / |max drawdown|)."""
+    r = _to_series(daily_returns).dropna()
+    if len(r) < 2:
         return np.inf
-    return ann_ret / max_dd
+    val = ep.calmar_ratio(r, period="daily", annualization=TRADING_DAYS_PER_YEAR)
+    if val is None or (isinstance(val, float) and np.isnan(val)):
+        return np.inf
+    return float(val)
 
 
 # ════════════════════════════════════════════════════════════
@@ -273,7 +289,7 @@ def benchmark_returns_from_spx(spx_df, start_date, end_date):
 
 def benchmark_comparison(strategy_daily_returns, benchmark_daily_returns):
     """
-    Compare strategy to buy-and-hold benchmark (e.g. SPX).
+    Compare strategy to buy-and-hold benchmark (e.g. SPX) using empyrical.
 
     Strategy returns are reindexed to the benchmark calendar: on days
     with no strategy trade, return = 0 (flat, capital parked). This
@@ -285,22 +301,40 @@ def benchmark_comparison(strategy_daily_returns, benchmark_daily_returns):
                    strategy_sharpe, strategy_ann_return, strategy_max_dd,
                    correlation, beta, alpha (annualised), information_ratio
     """
-    b_ret = benchmark_daily_returns.dropna()
+    b_ret = _to_series(benchmark_daily_returns).dropna()
     if b_ret.empty:
         return {}
 
     # Reindex strategy to benchmark calendar; fill missing days with 0 (flat)
-    s_ret = strategy_daily_returns.reindex(b_ret.index, fill_value=0.0)
+    s_ret = _to_series(strategy_daily_returns).reindex(b_ret.index, fill_value=0.0).dropna()
+    if s_ret.empty:
+        return {}
 
-    cov = np.cov(s_ret, b_ret)
-    var_b = cov[1, 1]
-    beta = cov[0, 1] / var_b if var_b != 0 else np.nan
+    # Align for empyrical alpha_beta (same index)
+    common = s_ret.index.intersection(b_ret.index)
+    s_aligned = s_ret.loc[common].fillna(0.0)
+    b_aligned = b_ret.loc[common].dropna()
+    s_aligned = s_aligned.reindex(b_aligned.index).fillna(0.0)
+
+    alpha_ann, beta = np.nan, np.nan
+    if len(s_aligned) > 10 and len(b_aligned) > 10:
+        try:
+            alpha_ann, beta = ep.alpha_beta(
+                s_aligned, b_aligned,
+                risk_free=0.0, period="daily", annualization=TRADING_DAYS_PER_YEAR,
+            )
+            alpha_ann = float(alpha_ann) if alpha_ann is not None else np.nan
+            beta = float(beta) if beta is not None else np.nan
+        except Exception:
+            pass
+
     ann_rf = 0.0
     sr_s = sharpe_ratio(s_ret, risk_free_annual=ann_rf)
     sr_b = sharpe_ratio(b_ret, risk_free_annual=ann_rf)
     ann_s = annualised_return(s_ret)
     ann_b = annualised_return(b_ret)
-    alpha_ann = ann_s - (ann_rf + beta * (ann_b - ann_rf)) if not np.isnan(beta) else np.nan
+    if np.isnan(alpha_ann) and not np.isnan(beta):
+        alpha_ann = ann_s - (ann_rf + beta * (ann_b - ann_rf))
     diff = s_ret - b_ret
     te = annualised_volatility(diff)
     ir = (ann_s - ann_b) / te if te and te > 0 else np.nan
@@ -312,7 +346,7 @@ def benchmark_comparison(strategy_daily_returns, benchmark_daily_returns):
         "strategy_sharpe": sr_s,
         "strategy_ann_return": ann_s,
         "strategy_max_dd": compute_drawdown(s_ret)["max_drawdown"],
-        "correlation": s_ret.corr(b_ret),
+        "correlation": s_ret.corr(b_ret) if len(s_ret) > 1 else np.nan,
         "beta": beta,
         "alpha_ann": alpha_ann,
         "information_ratio": ir,
@@ -433,6 +467,28 @@ def capacity_estimate(trades_df, notional_per_trade, adv_billions=50.0, pct_adv_
 # 5.  FULL PERFORMANCE REPORT
 # ════════════════════════════════════════════════════════════
 
+def returns_on_full_calendar(daily_pnl_df, spx_df=None):
+    """
+    Reindex strategy daily returns to the full trading-day calendar;
+    fill days with no position with 0. This avoids inflating Sharpe by
+    only counting "active" days when annualising.
+    """
+    strat_ret = daily_pnl_df.set_index("date")["daily_return"].dropna()
+    if strat_ret.empty:
+        return strat_ret
+    start_date = strat_ret.index.min()
+    end_date = strat_ret.index.max()
+    if spx_df is not None and "date" in spx_df.columns:
+        calendar = spx_df.loc[
+            (spx_df["date"] >= start_date) & (spx_df["date"] <= end_date),
+            "date",
+        ].drop_duplicates()
+        full_dates = pd.DatetimeIndex(calendar.sort_values().values)
+    else:
+        full_dates = pd.bdate_range(start_date, end_date)
+    return strat_ret.reindex(full_dates, fill_value=0.0)
+
+
 def full_performance_report(daily_pnl_df, trades_df, spx_df=None, notional=NOTIONAL_CAPITAL):
     """
     Generate a comprehensive performance report.
@@ -476,24 +532,31 @@ def full_performance_report(daily_pnl_df, trades_df, spx_df=None, notional=NOTIO
         print("\n  [performance] Insufficient daily returns (need ≥2); report uses defaults for return metrics.")
         return report
 
+    # Use full calendar (flat days = 0) so ann. return and Sharpe are not inflated
+    dr_calendar = returns_on_full_calendar(daily_pnl_df, spx_df)
+    if dr_calendar.empty or len(dr_calendar) < 2:
+        dr_calendar = dr
+    else:
+        dr_calendar = dr_calendar.dropna()
+
     report = {
         "return_metrics": {
-            "annualised_return": annualised_return(dr),
-            "annualised_volatility": annualised_volatility(dr),
-            "sharpe_ratio": sharpe_ratio(dr),
-            "sortino_ratio": sortino_ratio(dr),
-            "calmar_ratio": calmar_ratio(dr),
+            "annualised_return": annualised_return(dr_calendar),
+            "annualised_volatility": annualised_volatility(dr_calendar),
+            "sharpe_ratio": sharpe_ratio(dr_calendar),
+            "sortino_ratio": sortino_ratio(dr_calendar),
+            "calmar_ratio": calmar_ratio(dr_calendar),
         },
-        "drawdown": compute_drawdown(dr),
-        "distribution": return_statistics(dr),
+        "drawdown": compute_drawdown(dr_calendar),
+        "distribution": return_statistics(dr_calendar),
         "trade_stats": trade_statistics(trades_df),
-        "higher_moments": higher_moments_with_significance(dr),
-        "probabilistic_sharpe_ratio": probabilistic_sharpe_ratio(dr, sr_ref=0.0),
+        "higher_moments": higher_moments_with_significance(dr_calendar),
+        "probabilistic_sharpe_ratio": probabilistic_sharpe_ratio(dr_calendar, sr_ref=0.0),
         "benchmark": {},
         "capacity": capacity_estimate(trades_df, notional),
     }
 
-    # Strategy returns as Series with date index for benchmark alignment
+    # Strategy returns for benchmark alignment (use calendar series so benchmark sees same span)
     if "date" in daily_pnl_df.columns:
         strat_ret = daily_pnl_df.set_index("date")["daily_return"].dropna()
     else:
@@ -504,7 +567,12 @@ def full_performance_report(daily_pnl_df, trades_df, spx_df=None, notional=NOTIO
         end_date = strat_ret.index.max()
         bench_ret = benchmark_returns_from_spx(spx_df, start_date, end_date)
         if len(bench_ret) > 0:
-            report["benchmark"] = benchmark_comparison(strat_ret, bench_ret)
+            # Align strategy to benchmark calendar (flat days = 0)
+            s_ret = dr_calendar.reindex(bench_ret.index, fill_value=0.0).dropna()
+            if len(s_ret) > 0:
+                report["benchmark"] = benchmark_comparison(s_ret, bench_ret)
+            else:
+                report["benchmark"] = benchmark_comparison(strat_ret, bench_ret)
 
     # Pretty-print summary
     print("\n" + "=" * 60)
@@ -617,6 +685,7 @@ def robustness_by_parameter(signal_df, spx_df, backtest_fn,
                             hold_days_range=None, cost_range=None):
     """
     Vary holding period and cost assumptions; report Sharpe for each.
+    For weeklies, hold_days_range should be <= 5 (backtest never holds past expiry).
 
     Parameters
     ----------
@@ -624,6 +693,7 @@ def robustness_by_parameter(signal_df, spx_df, backtest_fn,
     backtest_fn : callable
         The run_backtest function.
     hold_days_range : list of int
+        Holding periods to test. For Friday-expiring weeklies use <= 5 (never hold post-expiry).
     cost_range : list of float (bps)
 
     Returns
@@ -631,7 +701,7 @@ def robustness_by_parameter(signal_df, spx_df, backtest_fn,
     pd.DataFrame
         Parameter grid with performance metrics.
     """
-    hold_days_range = hold_days_range or [10, 15, 22, 30, 44]
+    hold_days_range = hold_days_range or [1, 2, 3, 4, 5]  # weeklies: max 5 trading days to expiry
     cost_range = cost_range or [0, 3, 5, 10, 15]
 
     results = []

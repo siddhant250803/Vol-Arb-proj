@@ -13,6 +13,8 @@ Comprehensive robustness battery for the VRP strategy:
     F. Parameter sensitivity grid (threshold × hold-days × cost)
     G. Bootstrap Sharpe confidence intervals
 
+All backtests hold only until option expiry (Friday weeklies). Hold-days sensitivity uses max 5d (≤ expiry).
+
 Produces:
     output/figures/15_oos_walkforward.png
     output/figures/16_stress_periods.png
@@ -56,6 +58,7 @@ from src.performance import (
     annualised_volatility, compute_drawdown, calmar_ratio,
     return_statistics, benchmark_returns_from_spx, benchmark_comparison,
     probabilistic_sharpe_ratio,
+    returns_on_full_calendar,
 )
 
 warnings.filterwarnings("ignore")
@@ -105,6 +108,17 @@ def _metrics(dr):
     }
 
 
+def _dr_for_metrics(pnl_df, spx_df):
+    """Calendar-aligned daily returns for metrics (flat days = 0)."""
+    if pnl_df.empty:
+        return pd.Series(dtype=float)
+    if spx_df is not None and not spx_df.empty:
+        dr = returns_on_full_calendar(pnl_df, spx_df)
+        if dr is not None and len(dr) >= 2:
+            return dr.dropna()
+    return pnl_df["daily_return"].dropna()
+
+
 # ════════════════════════════════════════════════════════════
 #  A.  OUT-OF-SAMPLE TEST
 # ════════════════════════════════════════════════════════════
@@ -128,7 +142,7 @@ def oos_test(signal_df, spx_df, train_frac=0.60):
         if pnl.empty:
             results[label] = {"n_trades": 0}
             continue
-        m = _metrics(pnl["daily_return"])
+        m = _metrics(_dr_for_metrics(pnl, spx_df))
         m["n_trades"] = len(trades)
         m["total_pnl"] = sum(t.net_pnl for t in trades)
         m["win_rate"] = sum(1 for t in trades if t.net_pnl > 0) / max(len(trades), 1)
@@ -171,7 +185,7 @@ def walk_forward(signal_df, spx_df, n_windows=5):
         end = dates[min((i + 1) * chunk - 1, len(dates) - 1)]
         window_sig = signal_df[(signal_df["date"] >= start) & (signal_df["date"] <= end)]
         trades, pnl = run_backtest(window_sig, spx_df)
-        m = _metrics(pnl["daily_return"]) if not pnl.empty else {}
+        m = _metrics(_dr_for_metrics(pnl, spx_df)) if not pnl.empty else {}
         m["window"] = i + 1
         m["start"] = start
         m["end"] = end
@@ -209,7 +223,7 @@ def yearly_breakdown(signal_df, spx_df):
     for y in years:
         ysig = signal_df[signal_df["year"] == y]
         trades, pnl = run_backtest(ysig, spx_df)
-        m = _metrics(pnl["daily_return"]) if not pnl.empty else {}
+        m = _metrics(_dr_for_metrics(pnl, spx_df)) if not pnl.empty else {}
         m["year"] = y
         m["n_trades"] = len(trades)
         m["total_pnl"] = sum(t.net_pnl for t in trades) if trades else 0
@@ -257,7 +271,7 @@ def stress_test(signal_df, spx_df):
             (signal_df["date"] >= s) & (signal_df["date"] <= e)
         ]
         trades, pnl = run_backtest(window, spx_df)
-        m = _metrics(pnl["daily_return"]) if not pnl.empty else {}
+        m = _metrics(_dr_for_metrics(pnl, spx_df)) if not pnl.empty else {}
         m["period"] = name
         m["n_trades"] = len(trades)
         m["total_pnl"] = sum(t.net_pnl for t in trades) if trades else 0
@@ -305,7 +319,7 @@ def regime_analysis(signal_df, spx_df, features_df):
     for label, sub in regimes.items():
         sub = sub.dropna(subset=["signal"])
         trades, pnl = run_backtest(sub, spx_df)
-        m = _metrics(pnl["daily_return"]) if not pnl.empty else {}
+        m = _metrics(_dr_for_metrics(pnl, spx_df)) if not pnl.empty else {}
         m["n_trades"] = len(trades)
         m["total_pnl"] = sum(t.net_pnl for t in trades) if trades else 0
         m["win_rate"] = (sum(1 for t in trades if t.net_pnl > 0)
@@ -332,7 +346,7 @@ def param_sensitivity(features_df, spx_df):
     _log("=" * 65)
 
     thresholds = [0.5, 0.75, 1.0, 1.25, 1.5, 2.0]
-    hold_days = [10, 15, 22, 30, 44]
+    hold_days = [1, 2, 3, 4, 5]  # weeklies: never hold past Friday expiry (max 5 trading days)
     costs = [0, 3, 5, 10, 15, 20]
 
     # F1: Threshold sensitivity (hold & cost at baseline)
@@ -342,7 +356,7 @@ def param_sensitivity(features_df, spx_df):
     for thr in thresholds:
         sig = _build_vrp_signal_with_threshold(features_df, thr)
         trades, pnl = run_backtest(sig, spx_df)
-        m = _metrics(pnl["daily_return"]) if not pnl.empty else {}
+        m = _metrics(_dr_for_metrics(pnl, spx_df)) if not pnl.empty else {}
         m["threshold"] = thr
         m["n_trades"] = len(trades)
         m["total_pnl"] = sum(t.net_pnl for t in trades) if trades else 0
@@ -358,7 +372,7 @@ def param_sensitivity(features_df, spx_df):
     sig_base = compute_vrp_signal(features_df)
     for hd in hold_days:
         trades, pnl = run_backtest(sig_base, spx_df, hold_days=hd)
-        m = _metrics(pnl["daily_return"]) if not pnl.empty else {}
+        m = _metrics(_dr_for_metrics(pnl, spx_df)) if not pnl.empty else {}
         m["hold_days"] = hd
         m["n_trades"] = len(trades)
         m["total_pnl"] = sum(t.net_pnl for t in trades) if trades else 0
@@ -373,7 +387,7 @@ def param_sensitivity(features_df, spx_df):
     cost_results = []
     for c in costs:
         trades, pnl = run_backtest(sig_base, spx_df, cost_bps=c)
-        m = _metrics(pnl["daily_return"]) if not pnl.empty else {}
+        m = _metrics(_dr_for_metrics(pnl, spx_df)) if not pnl.empty else {}
         m["cost_bps"] = c
         m["n_trades"] = len(trades)
         m["total_pnl"] = sum(t.net_pnl for t in trades) if trades else 0
@@ -396,7 +410,7 @@ def _build_vrp_signal_with_threshold(features_df, threshold):
     if rv_col is None:
         return pd.DataFrame(columns=["date", "iv", "rv_forecast", "vrp", "vrp_zscore", "signal"])
 
-    iv_col = "atm_iv_30d"
+    iv_col = "atm_iv_at_expiry"
     rv_vals = df[rv_col].dropna()
     iv_vals = df[iv_col].dropna()
 
@@ -426,13 +440,14 @@ def _build_vrp_signal_with_threshold(features_df, threshold):
 #  G.  BOOTSTRAP SHARPE CONFIDENCE INTERVALS
 # ════════════════════════════════════════════════════════════
 
-def bootstrap_sharpe(pnl_df, n_boot=10000, ci=0.95):
+def bootstrap_sharpe(pnl_df, spx_df=None, n_boot=10000, ci=0.95):
     """Block-bootstrap the Sharpe ratio for statistical significance."""
     _log("\n" + "=" * 65)
     _log("  G. BOOTSTRAP SHARPE CONFIDENCE INTERVALS")
     _log("=" * 65)
 
-    dr = pnl_df["daily_return"].dropna().values
+    dr_series = _dr_for_metrics(pnl_df, spx_df)
+    dr = dr_series.values if isinstance(dr_series, pd.Series) else dr_series
     n = len(dr)
     block_size = 22  # monthly blocks to preserve autocorrelation
     if n <= block_size:
@@ -458,7 +473,7 @@ def bootstrap_sharpe(pnl_df, n_boot=10000, ci=0.95):
     mean_s = boot_sharpes.mean()
     pct_positive = (boot_sharpes > 0).mean()
 
-    _log(f"\n  Sample Sharpe:    {sharpe_ratio(pd.Series(dr)):.2f}")
+    _log(f"\n  Sample Sharpe:    {sharpe_ratio(dr_series):.2f}")
     _log(f"  Bootstrap Mean:   {mean_s:.2f}")
     _log(f"  95% CI:           [{lo:.2f}, {hi:.2f}]")
     _log(f"  P(Sharpe > 0):    {pct_positive:.1%}")
@@ -663,7 +678,7 @@ def plot_param_sensitivity(thresh_res, hold_res, cost_res):
     ax2.set_ylim(0, 105)
     ax.grid(True, alpha=0.3, axis="y")
 
-    # Holding period
+    # Holding period (max 5d for weeklies; backtest exits at expiry)
     ax = axes[1]
     hds = [r["hold_days"] for r in hold_res]
     shs = [r.get("sharpe", 0) for r in hold_res]
@@ -671,7 +686,7 @@ def plot_param_sensitivity(thresh_res, hold_res, cost_res):
     ax.bar(np.arange(len(hds)), shs, color=PLOT_ACCENT, alpha=0.7)
     ax.set_xticks(np.arange(len(hds)))
     ax.set_xticklabels([f"{h}d" for h in hds], fontsize=9)
-    ax.set_title("Holding Period", fontweight="bold")
+    ax.set_title("Holding Period (≤ expiry, max 5d)", fontweight="bold")
     ax.set_ylabel("Sharpe")
     ax2 = ax.twinx()
     ax2.plot(np.arange(len(hds)), pnls, "go-", ms=6, label="PnL ($M)")
@@ -801,6 +816,7 @@ def main():
     _log("\n" + "=" * 65)
     _log("  ROBUSTNESS, OUT-OF-SAMPLE & STRESS TESTING SUITE")
     _log("=" * 65)
+    _log("  (All backtests hold only until option expiry; no holding past expiry.)")
 
     # ── Load & prepare data ────────────────────────────────
     _log("\nLoading data ...")
@@ -820,7 +836,7 @@ def main():
     # Full-sample backtest for baseline
     _log("\nFull-sample baseline backtest ...")
     full_trades, full_pnl = run_backtest(signal_df, spx_df)
-    full_m = _metrics(full_pnl["daily_return"])
+    full_m = _metrics(_dr_for_metrics(full_pnl, spx_df))
     _log(f"  Baseline: {len(full_trades)} trades, "
          f"Sharpe={full_m['sharpe']:.2f}, MaxDD={full_m['max_dd']:.1%}")
 
@@ -843,7 +859,7 @@ def main():
     thresh_res, hold_res, cost_res = param_sensitivity(augmented, spx_df)
 
     # ── G. Bootstrap Sharpe ───────────────────────────────
-    boot_sharpes, lo, hi, mean_s = bootstrap_sharpe(full_pnl)
+    boot_sharpes, lo, hi, mean_s = bootstrap_sharpe(full_pnl, spx_df=spx_df)
 
     # ── Save report ───────────────────────────────────────
     REPORTS_DIR.mkdir(parents=True, exist_ok=True)
@@ -858,7 +874,7 @@ def main():
     plot_stress_periods(stress_res, spx_df=spx_df)
     plot_regime_analysis(regime_res)
     plot_param_sensitivity(thresh_res, hold_res, cost_res)
-    full_psr = probabilistic_sharpe_ratio(full_pnl["daily_return"], sr_ref=0.0) if not full_pnl.empty else None
+    full_psr = probabilistic_sharpe_ratio(_dr_for_metrics(full_pnl, spx_df), sr_ref=0.0) if not full_pnl.empty else None
     if len(boot_sharpes) > 0:
         plot_bootstrap(boot_sharpes, lo, hi, mean_s, psr=full_psr)
     plot_yearly(yearly_res, spx_df=spx_df)

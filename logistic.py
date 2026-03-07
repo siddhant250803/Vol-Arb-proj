@@ -340,7 +340,7 @@ def run_logistic_expected_vol_oos(
             "target_forward_return": test_row["target_forward_return"].iloc[0],
             "target_horizon_scaled_return": test_row["target_horizon_scaled_return"].iloc[0],
             "fwd_rvol": test_row["fwd_rvol"].iloc[0] if "fwd_rvol" in test_row.columns else np.nan,
-            "atm_iv_30d": test_row["atm_iv_30d"].iloc[0] if "atm_iv_30d" in test_row.columns else np.nan,
+            "atm_iv_at_expiry": test_row["atm_iv_at_expiry"].iloc[0] if "atm_iv_at_expiry" in test_row.columns else np.nan,
         }
 
         raw_probs = {}

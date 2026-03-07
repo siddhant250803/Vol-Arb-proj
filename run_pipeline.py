@@ -9,8 +9,8 @@ volatility arbitrage pipeline:
     Stage 1 — Data Loading & Cleaning
     Stage 2 — Feature Engineering  (IV measures, RV, events)
     Stage 3 — RV Forecasting       (HAR-RV, GARCH family)
-    Stage 4 — Signal Construction   (VRP, skew, term, distribution)
-    Stage 5 — Backtesting           (delta-hedged straddles)
+    Stage 4 — Signal Construction   (VRP, skew, term-structure)
+    Stage 5 — Backtesting           (delta-hedged straddles; hold only to option expiry)
     Stage 6 — Performance Analysis  (metrics, robustness)
     Stage 7 — Visualisation         (all plots + dashboard)
     Stage 8 — Export Results        (CSV artifacts)
@@ -19,6 +19,8 @@ Usage:
     python run_pipeline.py              # full run (figures 01–12 only)
     python run_pipeline.py --quick      # fast dev run (fewer rows)
     python run_pipeline.py --all-figures  # also run comparison + robustness → figures 13–20
+
+All backtests hold only until option expiry (Friday weeklies); no position held past expiry.
 """
 
 import sys
@@ -168,11 +170,11 @@ def stage6_performance(trades_df, pnl_df, signals, data):
         print("\n  Sub-period Sharpe ratios:")
         print(subperiod_df[["period", "start", "end", "sharpe", "ann_return"]].to_string())
 
-        # Parameter sensitivity (quick grid)
+        # Parameter sensitivity (hold days ≤ expiry only; backtest caps at exdate)
         print("\n  Running parameter sensitivity ...")
         param_df = robustness_by_parameter(
             signals, data["spx"], run_backtest,
-            hold_days_range=[15, 22, 30],
+            hold_days_range=[1, 2, 3, 4, 5],  # weeklies: never hold past Friday expiry
             cost_range=[0, 5, 10],
         )
         if not param_df.empty:
@@ -221,7 +223,7 @@ def stage7_visualise(data, features, signals, pnl_df, trades_df,
         viz.plot_summary_dashboard(data["spx"], features, signals, pnl_df, report)
 
     print(f"\n  Figures 01–12 saved to: {FIGURES_DIR}")
-    print("  (Figures 13–20 require: python run_comparison.py && python run_robustness.py  or  run_pipeline.py --all-figures)")
+    print("  (Figures 13–20 + logistic sweep: run_pipeline.py --all-figures  or run scripts individually)")
 
 
 def stage8_export(data, features, signals, trades_df, pnl_df, report):
@@ -246,8 +248,7 @@ def stage8_export(data, features, signals, trades_df, pnl_df, report):
     # Trades and trade log (all buys/sells with entry/exit prices and PnL)
     if not trades_df.empty:
         trades_df.to_csv(DATA_OUTPUT_DIR / "trades.csv", index=False)
-        trades_df.to_csv(DATA_OUTPUT_DIR / "trade_log.csv", index=False)
-        print(f"  Saved trades.csv and trade_log.csv ({len(trades_df)} trades)")
+        print(f"  Saved trades.csv ({len(trades_df)} trades)")
 
     # Daily PnL = sum(PnL) per calendar day
     if not pnl_df.empty:
@@ -259,6 +260,7 @@ def stage8_export(data, features, signals, trades_df, pnl_df, report):
         with open(REPORTS_DIR / "performance_report.txt", "w") as f:
             f.write("=" * 60 + "\n")
             f.write("  IV vs Forecast RV — Performance Report\n")
+            f.write("  (Returns/Sharpe on full calendar; flat days = 0)\n")
             f.write("=" * 60 + "\n\n")
 
             f.write("RETURN METRICS\n")
@@ -325,7 +327,7 @@ def main():
     )
     parser.add_argument(
         "--all-figures", action="store_true",
-        help="Also run run_comparison.py and run_robustness.py to generate figures 13–20 (strategy comparison, FOMC, OOS, stress, regime, param sensitivity, bootstrap, yearly)."
+        help="Also run run_comparison.py, run_robustness.py, and run_logistic_quantile_sweep.py (figures 13–20, logistic quantile sweep)."
     )
     args = parser.parse_args()
 
@@ -338,7 +340,7 @@ def main():
     if args.quick:
         print("  ⚡ QUICK MODE — reduced data for development")
     if args.all_figures:
-        print("  📊 ALL FIGURES — will run comparison + robustness after pipeline")
+        print("  📊 ALL FIGURES — will run comparison + robustness + logistic quantile sweep after pipeline")
     print()
 
     # ── Run all stages ─────────────────────────────────────
@@ -357,10 +359,14 @@ def main():
     # ── Optional: generate figures 13–20 ───────────────────
     if args.all_figures:
         print("\n" + "█" * 60)
-        print("  GENERATING FIGURES 13–20 (comparison + robustness)")
+        print("  GENERATING FIGURES 13–20 + LOGISTIC QUANTILE SWEEP")
         print("█" * 60 + "\n")
         root = Path(__file__).resolve().parent
-        for name, script in [("comparison (13–14)", "run_comparison.py"), ("robustness (15–20)", "run_robustness.py")]:
+        for name, script in [
+            ("comparison (13–14)", "run_comparison.py"),
+            ("robustness (15–20)", "run_robustness.py"),
+            ("logistic quantile sweep", "run_logistic_quantile_sweep.py"),
+        ]:
             path = root / script
             if path.exists():
                 print(f"  Running {script} ...")
