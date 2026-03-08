@@ -41,7 +41,7 @@ PROJECT_ROOT = Path(__file__).resolve().parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
 from src.config import (
-    OUTPUT_DIR, FIGURES_DIR, REPORTS_DIR, REPORT_FIGURES_DIR,
+    OUTPUT_DIR, FIGURES_DIR, REPORTS_DIR,
     SIGNAL_ZSCORE_ENTRY, SIGNAL_LOOKBACK,
     NOTIONAL_CAPITAL, TRADING_DAYS_PER_YEAR,
     POSITION_HOLD_DAYS, TRANSACTION_COST_BPS,
@@ -80,8 +80,6 @@ def _save(fig, name):
     path = FIGURES_DIR / f"{name}.png"
     fig.savefig(path, dpi=150, bbox_inches="tight")
     print(f"  [viz] Saved → {path.relative_to(FIGURES_DIR.parent.parent)}")
-    REPORT_FIGURES_DIR.mkdir(parents=True, exist_ok=True)
-    fig.savefig(REPORT_FIGURES_DIR / f"{name}.png", dpi=150, bbox_inches="tight")
     plt.close(fig)
 
 

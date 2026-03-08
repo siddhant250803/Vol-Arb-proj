@@ -1,4 +1,4 @@
-This is pdfTeX, Version 3.141592653-2.6-1.40.27 (TeX Live 2025) (preloaded format=pdflatex 2025.3.8)  6 MAR 2026 21:33
+This is pdfTeX, Version 3.141592653-2.6-1.40.27 (TeX Live 2025) (preloaded format=pdflatex 2025.3.8)  7 MAR 2026 16:23
 entering extended mode
  restricted \write18 enabled.
  %&-line parsing enabled.
@@ -944,7 +944,7 @@ File: tikzlibrarypositioning.code.tex 2023-01-15 v3.1.10 (3.1.10)
 )
 
 Package hyperref Warning: Token not allowed in a PDF string (Unicode):
-(hyperref)                removing `\\' on input line 68.
+(hyperref)                removing `\\' on input line 69.
 
 (/usr/local/texlive/2025/texmf-dist/tex/latex/l3backend/l3backend-pdftex.def
 File: l3backend-pdftex.def 2024-05-08 L3 backend support: PDF output (pdfTeX)
@@ -954,24 +954,24 @@ File: l3backend-pdftex.def 2024-05-08 L3 backend support: PDF output (pdfTeX)
 (./presentation.aux)
 \openout1 = `presentation.aux'.
 
-LaTeX Font Info:    Checking defaults for OML/cmm/m/it on input line 72.
-LaTeX Font Info:    ... okay on input line 72.
-LaTeX Font Info:    Checking defaults for OMS/cmsy/m/n on input line 72.
-LaTeX Font Info:    ... okay on input line 72.
-LaTeX Font Info:    Checking defaults for OT1/cmr/m/n on input line 72.
-LaTeX Font Info:    ... okay on input line 72.
-LaTeX Font Info:    Checking defaults for T1/cmr/m/n on input line 72.
-LaTeX Font Info:    ... okay on input line 72.
-LaTeX Font Info:    Checking defaults for TS1/cmr/m/n on input line 72.
-LaTeX Font Info:    ... okay on input line 72.
-LaTeX Font Info:    Checking defaults for OMX/cmex/m/n on input line 72.
-LaTeX Font Info:    ... okay on input line 72.
-LaTeX Font Info:    Checking defaults for U/cmr/m/n on input line 72.
-LaTeX Font Info:    ... okay on input line 72.
-LaTeX Font Info:    Checking defaults for PD1/pdf/m/n on input line 72.
-LaTeX Font Info:    ... okay on input line 72.
-LaTeX Font Info:    Checking defaults for PU/pdf/m/n on input line 72.
-LaTeX Font Info:    ... okay on input line 72.
+LaTeX Font Info:    Checking defaults for OML/cmm/m/it on input line 73.
+LaTeX Font Info:    ... okay on input line 73.
+LaTeX Font Info:    Checking defaults for OMS/cmsy/m/n on input line 73.
+LaTeX Font Info:    ... okay on input line 73.
+LaTeX Font Info:    Checking defaults for OT1/cmr/m/n on input line 73.
+LaTeX Font Info:    ... okay on input line 73.
+LaTeX Font Info:    Checking defaults for T1/cmr/m/n on input line 73.
+LaTeX Font Info:    ... okay on input line 73.
+LaTeX Font Info:    Checking defaults for TS1/cmr/m/n on input line 73.
+LaTeX Font Info:    ... okay on input line 73.
+LaTeX Font Info:    Checking defaults for OMX/cmex/m/n on input line 73.
+LaTeX Font Info:    ... okay on input line 73.
+LaTeX Font Info:    Checking defaults for U/cmr/m/n on input line 73.
+LaTeX Font Info:    ... okay on input line 73.
+LaTeX Font Info:    Checking defaults for PD1/pdf/m/n on input line 73.
+LaTeX Font Info:    ... okay on input line 73.
+LaTeX Font Info:    Checking defaults for PU/pdf/m/n on input line 73.
+LaTeX Font Info:    ... okay on input line 73.
 
 *geometry* driver: auto-detecting
 *geometry* detected driver: pdftex
@@ -1029,64 +1029,64 @@ Package epstopdf-base Info: Redefining graphics rule for `.eps' on input line 4
 File: epstopdf-sys.cfg 2010/07/13 v1.3 Configuration of (r)epstopdf for TeX Liv
 e
 ))
-Package hyperref Info: Link coloring OFF on input line 72.
+Package hyperref Info: Link coloring OFF on input line 73.
 
 (./presentation.out) (./presentation.out)
 \@outlinefile=\write5
 \openout5 = `presentation.out'.
 
 LaTeX Font Info:    Overwriting symbol font `operators' in version `normal'
-(Font)                  OT1/cmr/m/n --> OT1/cmss/m/n on input line 72.
+(Font)                  OT1/cmr/m/n --> OT1/cmss/m/n on input line 73.
 LaTeX Font Info:    Overwriting symbol font `operators' in version `bold'
-(Font)                  OT1/cmr/bx/n --> OT1/cmss/b/n on input line 72.
+(Font)                  OT1/cmr/bx/n --> OT1/cmss/b/n on input line 73.
 \symnumbers=\mathgroup6
 \sympureletters=\mathgroup7
 LaTeX Font Info:    Overwriting math alphabet `\mathrm' in version `normal'
-(Font)                  OT1/cmss/m/n --> OT1/cmr/m/n on input line 72.
-LaTeX Font Info:    Redeclaring math alphabet \mathbf on input line 72.
+(Font)                  OT1/cmss/m/n --> OT1/cmr/m/n on input line 73.
+LaTeX Font Info:    Redeclaring math alphabet \mathbf on input line 73.
 LaTeX Font Info:    Overwriting math alphabet `\mathbf' in version `normal'
-(Font)                  OT1/cmr/bx/n --> OT1/cmss/b/n on input line 72.
+(Font)                  OT1/cmr/bx/n --> OT1/cmss/b/n on input line 73.
 LaTeX Font Info:    Overwriting math alphabet `\mathbf' in version `bold'
-(Font)                  OT1/cmr/bx/n --> OT1/cmss/b/n on input line 72.
-LaTeX Font Info:    Redeclaring math alphabet \mathsf on input line 72.
+(Font)                  OT1/cmr/bx/n --> OT1/cmss/b/n on input line 73.
+LaTeX Font Info:    Redeclaring math alphabet \mathsf on input line 73.
 LaTeX Font Info:    Overwriting math alphabet `\mathsf' in version `normal'
-(Font)                  OT1/cmss/m/n --> OT1/cmss/m/n on input line 72.
+(Font)                  OT1/cmss/m/n --> OT1/cmss/m/n on input line 73.
 LaTeX Font Info:    Overwriting math alphabet `\mathsf' in version `bold'
-(Font)                  OT1/cmss/bx/n --> OT1/cmss/m/n on input line 72.
-LaTeX Font Info:    Redeclaring math alphabet \mathit on input line 72.
+(Font)                  OT1/cmss/bx/n --> OT1/cmss/m/n on input line 73.
+LaTeX Font Info:    Redeclaring math alphabet \mathit on input line 73.
 LaTeX Font Info:    Overwriting math alphabet `\mathit' in version `normal'
-(Font)                  OT1/cmr/m/it --> OT1/cmss/m/it on input line 72.
+(Font)                  OT1/cmr/m/it --> OT1/cmss/m/it on input line 73.
 LaTeX Font Info:    Overwriting math alphabet `\mathit' in version `bold'
-(Font)                  OT1/cmr/bx/it --> OT1/cmss/m/it on input line 72.
-LaTeX Font Info:    Redeclaring math alphabet \mathtt on input line 72.
+(Font)                  OT1/cmr/bx/it --> OT1/cmss/m/it on input line 73.
+LaTeX Font Info:    Redeclaring math alphabet \mathtt on input line 73.
 LaTeX Font Info:    Overwriting math alphabet `\mathtt' in version `normal'
-(Font)                  OT1/cmtt/m/n --> OT1/cmtt/m/n on input line 72.
+(Font)                  OT1/cmtt/m/n --> OT1/cmtt/m/n on input line 73.
 LaTeX Font Info:    Overwriting math alphabet `\mathtt' in version `bold'
-(Font)                  OT1/cmtt/m/n --> OT1/cmtt/m/n on input line 72.
+(Font)                  OT1/cmtt/m/n --> OT1/cmtt/m/n on input line 73.
 LaTeX Font Info:    Overwriting symbol font `numbers' in version `bold'
-(Font)                  OT1/cmss/m/n --> OT1/cmss/b/n on input line 72.
+(Font)                  OT1/cmss/m/n --> OT1/cmss/b/n on input line 73.
 LaTeX Font Info:    Overwriting symbol font `pureletters' in version `bold'
-(Font)                  OT1/cmss/m/it --> OT1/cmss/b/it on input line 72.
+(Font)                  OT1/cmss/m/it --> OT1/cmss/b/it on input line 73.
 LaTeX Font Info:    Overwriting math alphabet `\mathrm' in version `bold'
-(Font)                  OT1/cmss/b/n --> OT1/cmr/b/n on input line 72.
+(Font)                  OT1/cmss/b/n --> OT1/cmr/b/n on input line 73.
 LaTeX Font Info:    Overwriting math alphabet `\mathbf' in version `bold'
-(Font)                  OT1/cmss/b/n --> OT1/cmss/b/n on input line 72.
+(Font)                  OT1/cmss/b/n --> OT1/cmss/b/n on input line 73.
 LaTeX Font Info:    Overwriting math alphabet `\mathsf' in version `bold'
-(Font)                  OT1/cmss/m/n --> OT1/cmss/b/n on input line 72.
+(Font)                  OT1/cmss/m/n --> OT1/cmss/b/n on input line 73.
 LaTeX Font Info:    Overwriting math alphabet `\mathit' in version `bold'
-(Font)                  OT1/cmss/m/it --> OT1/cmss/b/it on input line 72.
+(Font)                  OT1/cmss/m/it --> OT1/cmss/b/it on input line 73.
 LaTeX Font Info:    Overwriting math alphabet `\mathtt' in version `bold'
-(Font)                  OT1/cmtt/m/n --> OT1/cmtt/b/n on input line 72.
-LaTeX Font Info:    Redeclaring symbol font `pureletters' on input line 72.
+(Font)                  OT1/cmtt/m/n --> OT1/cmtt/b/n on input line 73.
+LaTeX Font Info:    Redeclaring symbol font `pureletters' on input line 73.
 LaTeX Font Info:    Overwriting symbol font `pureletters' in version `normal'
 (Font)                  OT1/cmss/m/it --> OT1/mathkerncmss/m/sl on input line 7
-2.
+3.
 LaTeX Font Info:    Overwriting symbol font `pureletters' in version `bold'
 (Font)                  OT1/cmss/b/it --> OT1/mathkerncmss/m/sl on input line 7
-2.
+3.
 LaTeX Font Info:    Overwriting symbol font `pureletters' in version `bold'
 (Font)                  OT1/mathkerncmss/m/sl --> OT1/mathkerncmss/bx/sl on inp
-ut line 72.
+ut line 73.
 
 (/usr/local/texlive/2025/texmf-dist/tex/latex/translator/translator-basic-dicti
 onary-English.dict
@@ -1112,20 +1112,20 @@ Dictionary: translator-numbers-dictionary, Language: English
 tionary-English.dict
 Dictionary: translator-theorem-dictionary, Language: English 
 ) (./presentation.nav)
-LaTeX Font Info:    Trying to load font information for U+msa on input line 72.
+LaTeX Font Info:    Trying to load font information for U+msa on input line 73.
 
 
 (/usr/local/texlive/2025/texmf-dist/tex/latex/amsfonts/umsa.fd
 File: umsa.fd 2013/01/14 v3.01 AMS symbols A
 )
-LaTeX Font Info:    Trying to load font information for U+msb on input line 72.
+LaTeX Font Info:    Trying to load font information for U+msb on input line 73.
 
 
 (/usr/local/texlive/2025/texmf-dist/tex/latex/amsfonts/umsb.fd
 File: umsb.fd 2013/01/14 v3.01 AMS symbols B
 )
 LaTeX Font Info:    Trying to load font information for OT1+mathkerncmss on inp
-ut line 72.
+ut line 73.
 
 (/usr/local/texlive/2025/texmf-dist/tex/latex/sansmathaccent/ot1mathkerncmss.fd
 File: ot1mathkerncmss.fd 2020/01/31 Fontinst v1.933 font definitions for OT1/ma
@@ -1138,15 +1138,15 @@ thkerncmss.
 <figures/05_vrp_signal.png, id=91, 1003.5894pt x 714.5094pt>
 File: figures/05_vrp_signal.png Graphic file (type png)
 <use figures/05_vrp_signal.png>
-Package pdftex.def Info: figures/05_vrp_signal.png  used on input line 107.
+Package pdftex.def Info: figures/05_vrp_signal.png  used on input line 108.
 (pdftex.def)             Requested size: 164.30028pt x 116.97314pt.
 
-Overfull \hbox (28.45273pt too wide) in paragraph at lines 107--107
+Overfull \hbox (28.45273pt too wide) in paragraph at lines 108--108
  [][]  
  []
 
 
-Overfull \vbox (7.41145pt too high) detected at line 107
+Overfull \vbox (21.01146pt too high) detected at line 108
  []
 
 
@@ -1159,16 +1159,16 @@ Overfull \vbox (7.41145pt too high) detected at line 107
 File: figures/01_spx_price_returns.png Graphic file (type png)
 <use figures/01_spx_price_returns.png>
 Package pdftex.def Info: figures/01_spx_price_returns.png  used on input line 1
-29.
+30.
 (pdftex.def)             Requested size: 164.30028pt x 81.16486pt.
 <figures/02_options_summary.png, id=126, 1148.6112pt x 732.336pt>
 File: figures/02_options_summary.png Graphic file (type png)
 <use figures/02_options_summary.png>
-Package pdftex.def Info: figures/02_options_summary.png  used on input line 129
+Package pdftex.def Info: figures/02_options_summary.png  used on input line 130
 .
 (pdftex.def)             Requested size: 164.30028pt x 104.75006pt.
 
-Overfull \hbox (28.45273pt too wide) in paragraph at lines 129--129
+Overfull \hbox (28.45273pt too wide) in paragraph at lines 130--130
  [][]  
  []
 
@@ -1177,7 +1177,7 @@ Overfull \hbox (28.45273pt too wide) in paragraph at lines 129--129
 [3
 
  <./figures/01_spx_price_returns.png> <./figures/02_options_summary.png>]
-Overfull \hbox (28.45273pt too wide) in paragraph at lines 144--144
+Overfull \hbox (28.45273pt too wide) in paragraph at lines 145--145
  [][]  
  []
 
@@ -1189,15 +1189,15 @@ Overfull \hbox (28.45273pt too wide) in paragraph at lines 144--144
 <figures/03_iv_vs_rv.png, id=191, 1003.1076pt x 498.1812pt>
 File: figures/03_iv_vs_rv.png Graphic file (type png)
 <use figures/03_iv_vs_rv.png>
-Package pdftex.def Info: figures/03_iv_vs_rv.png  used on input line 163.
+Package pdftex.def Info: figures/03_iv_vs_rv.png  used on input line 164.
 (pdftex.def)             Requested size: 164.30028pt x 81.59581pt.
 <figures/04_rv_forecasts.png, id=192, 1003.1076pt x 498.1812pt>
 File: figures/04_rv_forecasts.png Graphic file (type png)
 <use figures/04_rv_forecasts.png>
-Package pdftex.def Info: figures/04_rv_forecasts.png  used on input line 163.
+Package pdftex.def Info: figures/04_rv_forecasts.png  used on input line 164.
 (pdftex.def)             Requested size: 164.30028pt x 81.59581pt.
 
-Overfull \hbox (28.45273pt too wide) in paragraph at lines 163--163
+Overfull \hbox (28.45273pt too wide) in paragraph at lines 164--164
  [][]  
  []
 
@@ -1208,16 +1208,16 @@ Overfull \hbox (28.45273pt too wide) in paragraph at lines 163--163
  <./figures/03_iv_vs_rv.png> <./figures/04_rv_forecasts.png>]
 File: figures/05_vrp_signal.png Graphic file (type png)
 <use figures/05_vrp_signal.png>
-Package pdftex.def Info: figures/05_vrp_signal.png  used on input line 182.
+Package pdftex.def Info: figures/05_vrp_signal.png  used on input line 183.
 (pdftex.def)             Requested size: 164.30028pt x 116.97314pt.
 <figures/06_surface_signals.png, id=221, 1003.5894pt x 569.9694pt>
 File: figures/06_surface_signals.png Graphic file (type png)
 <use figures/06_surface_signals.png>
-Package pdftex.def Info: figures/06_surface_signals.png  used on input line 182
+Package pdftex.def Info: figures/06_surface_signals.png  used on input line 183
 .
 (pdftex.def)             Requested size: 164.30028pt x 93.31033pt.
 
-Overfull \hbox (28.45273pt too wide) in paragraph at lines 182--182
+Overfull \hbox (28.45273pt too wide) in paragraph at lines 183--183
  [][]  
  []
 
@@ -1226,7 +1226,7 @@ Overfull \hbox (28.45273pt too wide) in paragraph at lines 182--182
 [6
 
  <./figures/06_surface_signals.png>]
-Overfull \hbox (28.45273pt too wide) in paragraph at lines 217--217
+Overfull \hbox (28.45273pt too wide) in paragraph at lines 218--218
  [][]  
  []
 
@@ -1235,7 +1235,7 @@ Overfull \hbox (28.45273pt too wide) in paragraph at lines 217--217
 [7
 
 ]
-Overfull \hbox (28.45273pt too wide) in paragraph at lines 236--236
+Overfull \hbox (28.45273pt too wide) in paragraph at lines 237--237
  [][]  
  []
 
@@ -1244,20 +1244,20 @@ Overfull \hbox (28.45273pt too wide) in paragraph at lines 236--236
 [8
 
 ]
-<figures/07_cumulative_pnl.png, id=310, 998.7714pt x 497.2176pt>
+<figures/07_cumulative_pnl.png, id=310, 1003.5894pt x 497.2176pt>
 File: figures/07_cumulative_pnl.png Graphic file (type png)
 <use figures/07_cumulative_pnl.png>
-Package pdftex.def Info: figures/07_cumulative_pnl.png  used on input line 259.
+Package pdftex.def Info: figures/07_cumulative_pnl.png  used on input line 260.
 
-(pdftex.def)             Requested size: 164.30028pt x 81.78699pt.
+(pdftex.def)             Requested size: 164.30028pt x 81.40005pt.
 <figures/08_trade_analysis.png, id=311, 1148.1294pt x 731.3724pt>
 File: figures/08_trade_analysis.png Graphic file (type png)
 <use figures/08_trade_analysis.png>
-Package pdftex.def Info: figures/08_trade_analysis.png  used on input line 259.
+Package pdftex.def Info: figures/08_trade_analysis.png  used on input line 260.
 
 (pdftex.def)             Requested size: 164.30028pt x 104.65688pt.
 
-Overfull \hbox (28.45273pt too wide) in paragraph at lines 259--259
+Overfull \hbox (28.45273pt too wide) in paragraph at lines 260--260
  [][]  
  []
 
@@ -1266,14 +1266,14 @@ Overfull \hbox (28.45273pt too wide) in paragraph at lines 259--259
 [9
 
  <./figures/07_cumulative_pnl.png> <./figures/08_trade_analysis.png>]
-<figures/09_monthly_returns.png, id=343, 893.2572pt x 461.0826pt>
+<figures/09_monthly_returns.png, id=343, 901.9296pt x 461.0826pt>
 File: figures/09_monthly_returns.png Graphic file (type png)
 <use figures/09_monthly_returns.png>
-Package pdftex.def Info: figures/09_monthly_returns.png  used on input line 269
+Package pdftex.def Info: figures/09_monthly_returns.png  used on input line 270
 .
-(pdftex.def)             Requested size: 342.2953pt x 176.68362pt.
+(pdftex.def)             Requested size: 342.2953pt x 174.98807pt.
 
-Overfull \hbox (28.45273pt too wide) in paragraph at lines 269--269
+Overfull \hbox (28.45273pt too wide) in paragraph at lines 270--270
  [][]  
  []
 
@@ -1286,16 +1286,16 @@ Overfull \hbox (28.45273pt too wide) in paragraph at lines 269--269
 File: figures/10_robustness_subperiods.png Graphic file (type png)
 <use figures/10_robustness_subperiods.png>
 Package pdftex.def Info: figures/10_robustness_subperiods.png  used on input li
-ne 288.
+ne 289.
 (pdftex.def)             Requested size: 164.30028pt x 80.9872pt.
 <figures/11_parameter_sensitivity.png, id=374, 659.5842pt x 424.4658pt>
 File: figures/11_parameter_sensitivity.png Graphic file (type png)
 <use figures/11_parameter_sensitivity.png>
 Package pdftex.def Info: figures/11_parameter_sensitivity.png  used on input li
-ne 288.
+ne 289.
 (pdftex.def)             Requested size: 164.30028pt x 105.72757pt.
 
-Overfull \hbox (28.45273pt too wide) in paragraph at lines 288--288
+Overfull \hbox (28.45273pt too wide) in paragraph at lines 289--289
  [][]  
  []
 
@@ -1309,10 +1309,10 @@ ng>]
 File: figures/12_summary_dashboard.png Graphic file (type png)
 <use figures/12_summary_dashboard.png>
 Package pdftex.def Info: figures/12_summary_dashboard.png  used on input line 2
-96.
+97.
 (pdftex.def)             Requested size: 342.2953pt x 277.08678pt.
 
-Overfull \hbox (28.45273pt too wide) in paragraph at lines 296--296
+Overfull \hbox (28.45273pt too wide) in paragraph at lines 297--297
  [][]  
  []
 
@@ -1325,10 +1325,10 @@ Overfull \hbox (28.45273pt too wide) in paragraph at lines 296--296
 File: figures/13_strategy_comparison.png Graphic file (type png)
 <use figures/13_strategy_comparison.png>
 Package pdftex.def Info: figures/13_strategy_comparison.png  used on input line
- 310.
+ 311.
 (pdftex.def)             Requested size: 342.2953pt x 191.75888pt.
 
-Overfull \hbox (28.45273pt too wide) in paragraph at lines 310--310
+Overfull \hbox (28.45273pt too wide) in paragraph at lines 311--311
  [][]  
  []
 
@@ -1337,7 +1337,7 @@ Overfull \hbox (28.45273pt too wide) in paragraph at lines 310--310
 [13
 
  <./figures/13_strategy_comparison.png>]
-Overfull \hbox (28.45273pt too wide) in paragraph at lines 328--328
+Overfull \hbox (28.45273pt too wide) in paragraph at lines 329--329
  [][]  
  []
 
@@ -1349,10 +1349,10 @@ Overfull \hbox (28.45273pt too wide) in paragraph at lines 328--328
 <figures/14_fomc_analysis.png, id=491, 1004.553pt x 740.5266pt>
 File: figures/14_fomc_analysis.png Graphic file (type png)
 <use figures/14_fomc_analysis.png>
-Package pdftex.def Info: figures/14_fomc_analysis.png  used on input line 338.
+Package pdftex.def Info: figures/14_fomc_analysis.png  used on input line 339.
 (pdftex.def)             Requested size: 342.2953pt x 252.32938pt.
 
-Overfull \hbox (28.45273pt too wide) in paragraph at lines 338--338
+Overfull \hbox (28.45273pt too wide) in paragraph at lines 339--339
  [][]  
  []
 
@@ -1361,14 +1361,14 @@ Overfull \hbox (28.45273pt too wide) in paragraph at lines 338--338
 [15
 
  <./figures/14_fomc_analysis.png>]
-<figures/15_oos_walkforward.png, id=520, 1157.7654pt x 688.0104pt>
+<figures/15_oos_walkforward.png, id=520, 1162.5834pt x 688.0104pt>
 File: figures/15_oos_walkforward.png Graphic file (type png)
 <use figures/15_oos_walkforward.png>
-Package pdftex.def Info: figures/15_oos_walkforward.png  used on input line 352
+Package pdftex.def Info: figures/15_oos_walkforward.png  used on input line 353
 .
-(pdftex.def)             Requested size: 342.2953pt x 203.41273pt.
+(pdftex.def)             Requested size: 342.2953pt x 202.56238pt.
 
-Overfull \hbox (28.45273pt too wide) in paragraph at lines 352--352
+Overfull \hbox (28.45273pt too wide) in paragraph at lines 353--353
  [][]  
  []
 
@@ -1380,11 +1380,11 @@ Overfull \hbox (28.45273pt too wide) in paragraph at lines 352--352
 <figures/16_stress_periods.png, id=551, 1727.253pt x 444.7014pt>
 File: figures/16_stress_periods.png Graphic file (type png)
 <use figures/16_stress_periods.png>
-Package pdftex.def Info: figures/16_stress_periods.png  used on input line 362.
+Package pdftex.def Info: figures/16_stress_periods.png  used on input line 363.
 
 (pdftex.def)             Requested size: 342.2953pt x 88.12444pt.
 
-Overfull \hbox (28.45273pt too wide) in paragraph at lines 362--362
+Overfull \hbox (28.45273pt too wide) in paragraph at lines 363--363
  [][]  
  []
 
@@ -1396,11 +1396,11 @@ Overfull \hbox (28.45273pt too wide) in paragraph at lines 362--362
 <figures/17_regime_analysis.png, id=579, 1438.173pt x 371.9496pt>
 File: figures/17_regime_analysis.png Graphic file (type png)
 <use figures/17_regime_analysis.png>
-Package pdftex.def Info: figures/17_regime_analysis.png  used on input line 372
+Package pdftex.def Info: figures/17_regime_analysis.png  used on input line 373
 .
 (pdftex.def)             Requested size: 342.2953pt x 88.52623pt.
 
-Overfull \hbox (28.45273pt too wide) in paragraph at lines 372--372
+Overfull \hbox (28.45273pt too wide) in paragraph at lines 373--373
  [][]  
  []
 
@@ -1413,10 +1413,10 @@ Overfull \hbox (28.45273pt too wide) in paragraph at lines 372--372
 File: figures/18_param_sensitivity.png Graphic file (type png)
 <use figures/18_param_sensitivity.png>
 Package pdftex.def Info: figures/18_param_sensitivity.png  used on input line 3
-86.
+87.
 (pdftex.def)             Requested size: 342.2953pt x 106.21375pt.
 
-Overfull \hbox (28.45273pt too wide) in paragraph at lines 386--386
+Overfull \hbox (28.45273pt too wide) in paragraph at lines 387--387
  [][]  
  []
 
@@ -1425,20 +1425,20 @@ Overfull \hbox (28.45273pt too wide) in paragraph at lines 386--386
 [19
 
  <./figures/18_param_sensitivity.png>]
-<figures/19_bootstrap_sharpe.png, id=639, 610.9224pt x 389.2944pt>
+<figures/19_bootstrap_sharpe.png, id=639, 616.2222pt x 389.2944pt>
 File: figures/19_bootstrap_sharpe.png Graphic file (type png)
 <use figures/19_bootstrap_sharpe.png>
 Package pdftex.def Info: figures/19_bootstrap_sharpe.png  used on input line 40
-5.
-(pdftex.def)             Requested size: 164.30028pt x 104.69507pt.
+6.
+(pdftex.def)             Requested size: 164.30028pt x 103.79218pt.
 <figures/20_yearly_breakdown.png, id=640, 1293.633pt x 733.2996pt>
 File: figures/20_yearly_breakdown.png Graphic file (type png)
 <use figures/20_yearly_breakdown.png>
 Package pdftex.def Info: figures/20_yearly_breakdown.png  used on input line 40
-5.
+6.
 (pdftex.def)             Requested size: 164.30028pt x 93.128pt.
 
-Overfull \hbox (28.45273pt too wide) in paragraph at lines 405--405
+Overfull \hbox (28.45273pt too wide) in paragraph at lines 406--406
  [][]  
  []
 
@@ -1447,7 +1447,7 @@ Overfull \hbox (28.45273pt too wide) in paragraph at lines 405--405
 [20
 
  <./figures/19_bootstrap_sharpe.png> <./figures/20_yearly_breakdown.png>]
-Overfull \hbox (28.45273pt too wide) in paragraph at lines 419--419
+Overfull \hbox (28.45273pt too wide) in paragraph at lines 420--420
  [][]  
  []
 
@@ -1456,7 +1456,7 @@ Overfull \hbox (28.45273pt too wide) in paragraph at lines 419--419
 [21
 
 ]
-Overfull \hbox (28.45273pt too wide) in paragraph at lines 428--428
+Overfull \hbox (28.45273pt too wide) in paragraph at lines 431--431
  [][]  
  []
 
@@ -1487,10 +1487,10 @@ Package rerunfilecheck Info: File `presentation.out' has not changed.
 (rerunfilecheck)             Checksum: 93AE7064BD250C197CE70F0B35B73393;1252.
  ) 
 Here is how much of TeX's memory you used:
- 27288 strings out of 473190
- 547005 string characters out of 5715801
- 919045 words of memory out of 5000000
- 49931 multiletter control sequences out of 15000+600000
+ 27328 strings out of 473190
+ 548133 string characters out of 5715801
+ 919077 words of memory out of 5000000
+ 49971 multiletter control sequences out of 15000+600000
  570957 words of font info for 79 fonts, out of 8000000 for 9000
  1141 hyphenation exceptions out of 8191
  128i,17n,123p,404b,902s stack positions out of 10000i,1000n,20000p,200000b,200000s
@@ -1513,7 +1513,7 @@ texlive/2025/texmf-dist/fonts/type1/public/amsfonts/cm/cmtt10.pfb></usr/local/t
 exlive/2025/texmf-dist/fonts/type1/public/cm-super/sfss0800.pfb></usr/local/tex
 live/2025/texmf-dist/fonts/type1/public/cm-super/sfss0900.pfb></usr/local/texli
 ve/2025/texmf-dist/fonts/type1/public/cm-super/sfss1095.pfb>
-Output written on presentation.pdf (23 pages, 3768996 bytes).
+Output written on presentation.pdf (23 pages, 3847935 bytes).
 PDF statistics:
  843 PDF objects out of 1000 (max. 8388607)
  698 compressed objects within 7 object streams

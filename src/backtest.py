@@ -431,8 +431,8 @@ def run_backtest(signal_df, spx_df, hold_days=None, cost_bps=None,
                     rv = 0.0
 
                 net = option_pnl + hedge_pnl - txn
-                # Cap realized loss on stop-loss exits at stop_loss_pct of trade value
-                if is_early_exit and stop_loss_pct > 0 and net < -stop_loss_pct * notional_deployed:
+                # Cap realized loss at stop_loss_pct of trade value (early exits AND expiry)
+                if stop_loss_pct > 0 and net < -stop_loss_pct * notional_deployed:
                     net = -stop_loss_pct * notional_deployed
 
                 trade = Trade(

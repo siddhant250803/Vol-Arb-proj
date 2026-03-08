@@ -62,6 +62,7 @@
 \usepackage{adjustbox}
 \usepackage{tikz}
 \usetikzlibrary{shapes.geometric,arrows.meta,positioning}
+\graphicspath{{figures/}{../output/figures/}}
 
 \title{Volatility Arbitrage via the Variance Risk Premium}
 \subtitle{Trading the IV--Forecast RV Spread on SPX Options}
@@ -93,12 +94,12 @@
       \begin{itemize}
         \item Delta-hedged ATM straddles on SPX.
         \item Enter when VRP z-score $> 1$ (short vol) or $< -1$ (long vol).
-        \item Hold to expiry (1--5d for weeklies), 25\% stop-loss, \$1M notional, 5\,bps cost.
+        \item Hold to expiry (1--5d for weeklies); 25\% stop per trade (early exit \& expiry); \$1M notional, 5\,bps cost.
       \end{itemize}
     \end{column}
     \begin{column}{0.48\textwidth}
       \begin{adjustbox}{max width=\linewidth,max height=0.52\textheight,keepaspectratio}
-        \includegraphics[width=\textwidth]{figures/05_vrp_signal.png}
+        \includegraphics[width=\textwidth]{05_vrp_signal.png}
       \end{adjustbox}
       \vspace{-0.3em}
       \scriptsize VRP z-score and discrete signal.
@@ -114,14 +115,14 @@
   \begin{columns}[T]
     \begin{column}{0.48\textwidth}
       \begin{adjustbox}{max width=\linewidth,max height=0.52\textheight,keepaspectratio}
-        \includegraphics[width=\textwidth]{figures/01_spx_price_returns.png}
+        \includegraphics[width=\textwidth]{01_spx_price_returns.png}
       \end{adjustbox}
       \vspace{-0.3em}
       \scriptsize SPX price and daily log returns.
     \end{column}
     \begin{column}{0.48\textwidth}
       \begin{adjustbox}{max width=\linewidth,max height=0.52\textheight,keepaspectratio}
-        \includegraphics[width=\textwidth]{figures/02_options_summary.png}
+        \includegraphics[width=\textwidth]{02_options_summary.png}
       \end{adjustbox}
       \scriptsize Options: volume, IV, moneyness, DTE. OptionMetrics 2005--2023; filters on bid, spread, DTE 7--60, moneyness $\pm$20\%.
     \end{column}
@@ -147,14 +148,14 @@
   \begin{columns}[T]
     \begin{column}{0.48\textwidth}
       \begin{adjustbox}{max width=\linewidth,max height=0.52\textheight,keepaspectratio}
-        \includegraphics[width=\textwidth]{figures/03_iv_vs_rv.png}
+        \includegraphics[width=\textwidth]{03_iv_vs_rv.png}
       \end{adjustbox}
       \vspace{-0.3em}
       \scriptsize ATM IV (at expiry) vs realized vol; spread = VRP raw input.
     \end{column}
     \begin{column}{0.48\textwidth}
       \begin{adjustbox}{max width=\linewidth,max height=0.52\textheight,keepaspectratio}
-        \includegraphics[width=\textwidth]{figures/04_rv_forecasts.png}
+        \includegraphics[width=\textwidth]{04_rv_forecasts.png}
       \end{adjustbox}
       \vspace{-0.3em}
       \scriptsize HAR-RV, GARCH, GJR vs actual forward RV; composite = equal-weight.
@@ -166,14 +167,14 @@
   \begin{columns}[T]
     \begin{column}{0.48\textwidth}
       \begin{adjustbox}{max width=\linewidth,max height=0.52\textheight,keepaspectratio}
-        \includegraphics[width=\textwidth]{figures/05_vrp_signal.png}
+        \includegraphics[width=\textwidth]{05_vrp_signal.png}
       \end{adjustbox}
       \vspace{-0.3em}
       \scriptsize VRP level, z-score, and $\pm 1$ entry bands.
     \end{column}
     \begin{column}{0.48\textwidth}
       \begin{adjustbox}{max width=\linewidth,max height=0.52\textheight,keepaspectratio}
-        \includegraphics[width=\textwidth]{figures/06_surface_signals.png}
+        \includegraphics[width=\textwidth]{06_surface_signals.png}
       \end{adjustbox}
       \vspace{-0.3em}
       \scriptsize Skew and term-structure signals.
@@ -243,14 +244,14 @@
   \begin{columns}[T]
     \begin{column}{0.48\textwidth}
       \begin{adjustbox}{max width=\linewidth,max height=0.52\textheight,keepaspectratio}
-        \includegraphics[width=\textwidth]{figures/07_cumulative_pnl.png}
+        \includegraphics[width=\textwidth]{07_cumulative_pnl.png}
       \end{adjustbox}
       \vspace{-0.3em}
-      \scriptsize Cumulative PnL and drawdown (25\% stop).
+      \scriptsize Cumulative PnL and drawdown (25\% stop per trade, early + expiry).
     \end{column}
     \begin{column}{0.48\textwidth}
       \begin{adjustbox}{max width=\linewidth,max height=0.52\textheight,keepaspectratio}
-        \includegraphics[width=\textwidth]{figures/08_trade_analysis.png}
+        \includegraphics[width=\textwidth]{08_trade_analysis.png}
       \end{adjustbox}
       \vspace{-0.3em}
       \scriptsize PnL distribution, IV vs RV at entry, direction breakdown.
@@ -261,25 +262,25 @@
 \begin{frame}{Monthly Returns \& Key Metrics}
   \centering
   \begin{adjustbox}{max width=\textwidth,max height=0.58\textheight,keepaspectratio}
-    \includegraphics[width=\textwidth]{figures/09_monthly_returns.png}
+    \includegraphics[width=\textwidth]{09_monthly_returns.png}
   \end{adjustbox}\\
   \scriptsize \centering Monthly return heatmap. \\
   \footnotesize
-  \textbf{Full-sample (VRP, 25\% stop):} 188 trades, 46.3\% win, \$8.91M total PnL; Sharpe 0.90, Sortino 1.22, Calmar 0.35; Ann.\ return 35.1\%, vol 86.9\%, max DD $-$99.8\%; Benchmark (SPX): Sharpe 0.66; alpha 117.9\%, info ratio 0.31.
+  \textbf{Full-sample (VRP, 25\% stop):} 188 trades, 46.3\% win, \$16.54M total PnL; Sharpe 2.16, Sortino 4.43, Calmar 2.91; Ann.\ return 244\%, vol 67.1\%, max DD $-$83.9\%; Benchmark (SPX): Sharpe 0.66; alpha 324\%, info ratio 3.41.
 \end{frame}
 
 \begin{frame}{Robustness \& Parameter Sensitivity (Pipeline)}
   \begin{columns}[T]
     \begin{column}{0.48\textwidth}
       \begin{adjustbox}{max width=\linewidth,max height=0.52\textheight,keepaspectratio}
-        \includegraphics[width=\textwidth]{figures/10_robustness_subperiods.png}
+        \includegraphics[width=\textwidth]{10_robustness_subperiods.png}
       \end{adjustbox}
       \vspace{-0.3em}
       \scriptsize Sharpe by sub-period.
     \end{column}
     \begin{column}{0.48\textwidth}
       \begin{adjustbox}{max width=\linewidth,max height=0.52\textheight,keepaspectratio}
-        \includegraphics[width=\textwidth]{figures/11_parameter_sensitivity.png}
+        \includegraphics[width=\textwidth]{11_parameter_sensitivity.png}
       \end{adjustbox}
       \vspace{-0.3em}
       \scriptsize Sharpe across hold days $\times$ cost (bps).
@@ -290,7 +291,7 @@
 \begin{frame}{Summary Dashboard}
   \centering
   \begin{adjustbox}{max width=\textwidth,max height=0.82\textheight,keepaspectratio}
-    \includegraphics[width=\textwidth]{figures/12_summary_dashboard.png}
+    \includegraphics[width=\textwidth]{12_summary_dashboard.png}
   \end{adjustbox}\\
   \scriptsize \centering Six-panel overview: SPX, IV vs RV, VRP signal, cumulative PnL, metrics, drawdown.
 \end{frame}
@@ -302,11 +303,11 @@
 \begin{frame}{Strategy Comparison}
   \centering
   \begin{adjustbox}{max width=\textwidth,max height=0.68\textheight,keepaspectratio}
-    \includegraphics[width=\textwidth]{figures/13_strategy_comparison.png}
+    \includegraphics[width=\textwidth]{13_strategy_comparison.png}
   \end{adjustbox}\\
   \scriptsize \centering VRP vs Var Swap: PnL, Sharpe, drawdowns. \\
   \footnotesize
-  \textbf{Var Swap leads:} Var Swap: 190 trades, Sharpe 1.06, \$14.04M, max DD $-$100\%; VRP: 188 trades, Sharpe 0.90, \$8.91M, max DD $-$99.8\%. Both show high drawdowns.
+  \textbf{Var Swap leads:} Var Swap: 190 trades, Sharpe 2.54, \$24.89M, max DD $-$82.3\%; VRP: 188 trades, Sharpe 2.16, \$16.54M, max DD $-$83.9\%. 25\% stop per trade caps losses.
 \end{frame}
 
 \begin{frame}{Results Comparison: All Strategies}
@@ -316,25 +317,25 @@
     \toprule
     \textbf{Strategy} & \textbf{Trades} & \textbf{Win Rate} & \textbf{Sharpe} & \textbf{Total PnL} & \textbf{Max DD} \\
     \midrule
-    VRP (ATM IV, composite RV) & 188 & 46.3\% & 0.90 & \$8.91M & $-$99.8\% \\
-    Var Swap (MFIV) & 190 & 48.4\% & 1.06 & \$14.04M & $-$100.0\% \\
+    VRP (ATM IV, composite RV) & 188 & 46.3\% & 2.16 & \$16.54M & $-$83.9\% \\
+    Var Swap (MFIV) & 190 & 48.4\% & 2.54 & \$24.89M & $-$82.3\% \\
     \bottomrule
   \end{tabular}
   \vspace{0.5em}
   \normalsize
   \raggedright
   \footnotesize
-  Same backtest: delta-hedged straddles, \$1M notional, hold to expiry (1--5d), 25\% stop, 5\,bps cost.
+  Same backtest: delta-hedged straddles, \$1M notional, hold to expiry (1--5d), 25\% stop per trade (early + expiry), 5\,bps cost.
 \end{frame}
 
 \begin{frame}{FOMC Window Analysis}
   \centering
   \begin{adjustbox}{max width=\textwidth,max height=0.68\textheight,keepaspectratio}
-    \includegraphics[width=\textwidth]{figures/14_fomc_analysis.png}
+    \includegraphics[width=\textwidth]{14_fomc_analysis.png}
   \end{adjustbox}\\
   \scriptsize \centering FOMC $\pm$7d vs non-FOMC across strategies. \\
   \footnotesize
-  \textbf{FOMC vs non-FOMC (VRP):} FOMC: 79 trades, 48\% win, $-$\$3.13M, Sharpe $-$0.19; Non-FOMC: 142 trades, 40\% win, \$2.78M, Sharpe 0.18. VRP weaker in FOMC windows.
+  \textbf{FOMC vs non-FOMC (VRP):} FOMC: 79 trades, 48\% win, \$15.37M, Sharpe 1.65; Non-FOMC: 142 trades, 40\% win, \$17.35M, Sharpe 1.48. Both profitable.
 \end{frame}
 
 % ═══════════════════════════════════════════════════════════
@@ -344,17 +345,17 @@
 \begin{frame}{Out-of-Sample \& Walk-Forward}
   \centering
   \begin{adjustbox}{max width=\textwidth,max height=0.68\textheight,keepaspectratio}
-    \includegraphics[width=\textwidth]{figures/15_oos_walkforward.png}
+    \includegraphics[width=\textwidth]{15_oos_walkforward.png}
   \end{adjustbox}\\
   \scriptsize \centering OOS cumulative PnL; walk-forward Sharpe by window. \\
   \footnotesize
-  \textbf{OOS (60/40 split):} In-sample: 115 trades, Sharpe 1.11, \$7.96M; Out-of-sample: 73 trades, Sharpe 0.45, \$956K. \textbf{Walk-forward:} 4 of 5 windows profitable; W5 (2020--23) negative.
+  \textbf{OOS (60/40 split):} In-sample: 115 trades, Sharpe 2.86, \$15.10M; Out-of-sample: 73 trades, Sharpe 0.69, \$1.44M. \textbf{Walk-forward:} 5 of 5 windows profitable.
 \end{frame}
 
 \begin{frame}{Stress Periods}
   \centering
   \begin{adjustbox}{max width=\textwidth,max height=0.68\textheight,keepaspectratio}
-    \includegraphics[width=\textwidth]{figures/16_stress_periods.png}
+    \includegraphics[width=\textwidth]{16_stress_periods.png}
   \end{adjustbox}\\
   \scriptsize \centering Sharpe, PnL, max DD by stress episode. \\
   \footnotesize
@@ -364,11 +365,11 @@
 \begin{frame}{Volatility Regime}
   \centering
   \begin{adjustbox}{max width=\textwidth,max height=0.68\textheight,keepaspectratio}
-    \includegraphics[width=\textwidth]{figures/17_regime_analysis.png}
+    \includegraphics[width=\textwidth]{17_regime_analysis.png}
   \end{adjustbox}\\
   \scriptsize \centering Performance by trailing 252d RV tercile. \\
   \footnotesize
-  \textbf{Regime (VRP):} Low vol: \$9.13M, Sharpe 0.79; Medium vol: $-$\$1.21M, Sharpe $-$0.06; High vol: $-$\$5.71M, Sharpe $-$0.26. Most profitable in low-vol regimes.
+  \textbf{Regime (VRP):} Low vol: \$17.17M, Sharpe 2.24; Medium vol: \$15.32M, Sharpe 1.49; High vol: \$5.02M, Sharpe 0.90. Profitable across regimes; best in low vol.
 \end{frame}
 
 % ═══════════════════════════════════════════════════════════
@@ -378,28 +379,28 @@
 \begin{frame}{Parameter Sensitivity (Robustness)}
   \centering
   \begin{adjustbox}{max width=\textwidth,max height=0.68\textheight,keepaspectratio}
-    \includegraphics[width=\textwidth]{figures/18_param_sensitivity.png}
+    \includegraphics[width=\textwidth]{18_param_sensitivity.png}
   \end{adjustbox}\\
   \scriptsize \centering Z-threshold, hold days, transaction cost. \\
   \footnotesize
-  \textbf{Findings:} Z-threshold: Sharpe positive at $z \leq 1.25$; degrades at $z > 1.5$. Hold: stable at 0.90 for 1--5d (weeklies). Cost: robust 0--20\,bps.
+  \textbf{Findings:} Z-threshold: Sharpe positive across grid; degrades at $z > 1.5$. Hold: stable at 2.16 for 1--5d (weeklies). Cost: robust 0--20\,bps.
 \end{frame}
 
 \begin{frame}{Bootstrap Sharpe \& Yearly Breakdown}
   \begin{columns}[T]
     \begin{column}{0.48\textwidth}
       \begin{adjustbox}{max width=\linewidth,max height=0.52\textheight,keepaspectratio}
-        \includegraphics[width=\textwidth]{figures/19_bootstrap_sharpe.png}
+        \includegraphics[width=\textwidth]{19_bootstrap_sharpe.png}
       \end{adjustbox}
       \vspace{-0.3em}
       \scriptsize Block bootstrap (10k, 22-day blocks); 95\% CI, P(Sharpe $>$ 0).
     \end{column}
     \begin{column}{0.48\textwidth}
       \begin{adjustbox}{max width=\linewidth,max height=0.52\textheight,keepaspectratio}
-        \includegraphics[width=\textwidth]{figures/20_yearly_breakdown.png}
+        \includegraphics[width=\textwidth]{20_yearly_breakdown.png}
       \end{adjustbox}
       \vspace{-0.3em}
-      \scriptsize Annual Sharpe, PnL, win rate, max DD (2011--2023). Profitable 6 of 13 years; \$8.91M cumulative.
+      \scriptsize Annual Sharpe, PnL, win rate, max DD (2011--2023). Profitable 11 of 13 years; \$16.54M cumulative.
     \end{column}
   \end{columns}
 \end{frame}
@@ -411,19 +412,21 @@
 \begin{frame}{Summary}
   \begin{itemize}
     \item VRP (IV $-$ forecast RV) is \textbf{tradeable} on SPX with delta-hedged straddles.
-    \item Sharpe 0.90, \$8.91M PnL (188 trades); Var Swap: Sharpe 1.06, \$14.04M (190 trades). Max DD $\approx$ 100\% for both.
+    \item Sharpe 2.16, \$16.54M PnL (188 trades); Var Swap: Sharpe 2.54, \$24.89M (190 trades). Max DD $\approx$ 84\% (25\% stop per trade caps losses).
     \item Var Swap outperforms VRP on Sharpe and PnL; strong in stress (Volmageddon, COVID); regime-dependent (low-vol best).
     \item \textbf{Logistic regression:} alternative RV forecast (weekly return quantiles $\to$ $E[z^2]$ $\to$ expected vol); same IV--RV signal and backtest; methodology in slides.
     \item Robust to threshold and costs; hold to expiry (1--5d for weeklies).
   \end{itemize}
 \end{frame}
 
-\begin{frame}{Limitations}
+\begin{frame}{Limitations \& Downfalls}
   \begin{itemize}
-    \item Tail risk: $\approx$100\% max DD; stop assumes executable at cap.
-    \item Amortized daily PnL in backtest $\Rightarrow$ reported Sharpe/drawdown approximate.
-    \item Single underlying (SPX); one position at a time in backtest.
-    \item Transaction cost (5\,bps) may be optimistic for stress periods.
+    \item \textbf{Tail risk:} $\approx$84\% max DD; 25\% stop per trade (early + expiry) caps each loss; assumes executable at cap.
+    \item \textbf{Regime-dependent:} Best in low vol (Sharpe 2.24); weaker in high vol (Sharpe 0.90).
+    \item \textbf{FOMC weakness:} VRP underperforms in FOMC windows (Sharpe $-$0.19 vs +0.18 non-FOMC).
+    \item \textbf{Statistical uncertainty:} Bootstrap P(Sharpe $>$ 0) = 99.9\%; 95\% CI [0.86, 10.31].
+    \item \textbf{Single underlying:} SPX only; one position at a time; limited capacity.
+    \item \textbf{Simplified hedging:} Daily delta hedge; no intraday gamma; costs may be optimistic in stress.
   \end{itemize}
 \end{frame}
 

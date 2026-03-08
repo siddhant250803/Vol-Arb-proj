@@ -38,7 +38,6 @@ Vol-Arb-proj/
 │
 ├── run_pipeline.py               # One-command end-to-end execution
 ├── requirements.txt              # Python dependencies
-├── proposal.md                   # Original research proposal
 │
 ├── Group 4 MS&E244/              # Raw data (not committed)
 │   ├── Options/
