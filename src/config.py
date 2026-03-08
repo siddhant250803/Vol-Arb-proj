@@ -1,17 +1,9 @@
-# ============================================================
-# config.py — Global Configuration & Constants
-# ============================================================
 """
 Central configuration for the IV vs Forecast RV project.
-All paths, column mappings, and tunable hyper-parameters
-live here so every other module imports from one place.
 """
 
 from pathlib import Path
 
-# ────────────────────────────────────────────────────────────
-# 1. Project Paths
-# ────────────────────────────────────────────────────────────
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
 DATA_DIR = PROJECT_ROOT / "Group 4 MS&E244"
@@ -22,12 +14,10 @@ FIGURES_DIR = OUTPUT_DIR / "figures"
 DATA_OUTPUT_DIR = OUTPUT_DIR / "data"
 REPORTS_DIR = OUTPUT_DIR / "reports"
 
-# Raw data files — default to full daily dataset for maximum coverage
 OPTIONS_FILE = OPTIONS_DIR / "spx-weeklies_daily_friday-expiration_all.csv"
 OPTIONS_FILTERED_FILE = OPTIONS_DIR / "spx-weeklies-filtered.csv"
 YIELD_FILE = RATES_DIR / "yield_panel_daily_frequency_monthly_maturity.csv"
 
-# Columns to load from the full CSV (skip unneeded text columns for speed)
 OPTIONS_USECOLS = [
     "date", "exdate", "cp_flag", "strike_price",
     "best_bid", "best_offer", "volume", "open_interest",
@@ -35,9 +25,6 @@ OPTIONS_USECOLS = [
     "forward_price", "exercise_style",
 ]
 
-# ────────────────────────────────────────────────────────────
-# 2. Column Name Mappings  (OptionMetrics conventions)
-# ────────────────────────────────────────────────────────────
 COL = dict(
     secid="secid",
     date="date",
@@ -58,9 +45,6 @@ COL = dict(
     exercise="exercise_style",
 )
 
-# ────────────────────────────────────────────────────────────
-# 3. Data Cleaning Parameters
-# ────────────────────────────────────────────────────────────
 STRIKE_DIVISOR = 1000               # OptionMetrics stores strike × 1000
 MIN_BID = 0.05                      # drop quotes with bid < $0.05
 MAX_SPREAD_RATIO = 1.0              # drop if (ask-bid)/mid > 100 %
@@ -68,17 +52,11 @@ MIN_DTE = 7                         # minimum days-to-expiration
 MAX_DTE = 60                        # maximum days-to-expiration
 MONEYNESS_BAND = 0.20               # keep strikes within ±20% of spot
 
-# ────────────────────────────────────────────────────────────
-# 4. Feature Engineering Parameters
-# ────────────────────────────────────────────────────────────
 ATM_DELTA_BAND = 0.10               # |delta| ∈ [0.40, 0.60] for ATM
 CONSTANT_MATURITY_DAYS = 30          # target constant-maturity tenor
 VARIANCE_SWAP_STRIKE_BAND = 0.05     # ±5% for variance swap
 TRADING_DAYS_PER_YEAR = 252
 
-# ────────────────────────────────────────────────────────────
-# 5. Realized Volatility Parameters
-# ────────────────────────────────────────────────────────────
 RV_HORIZONS = {                      # look-back windows (trading days)
     "daily": 1,
     "weekly": 5,
@@ -87,15 +65,9 @@ RV_HORIZONS = {                      # look-back windows (trading days)
 RV_FORECAST_HORIZON = 22             # forward-looking forecast (≈ 1 month)
 ANNUALISATION_FACTOR = 252           # for annualising daily variance
 
-# ────────────────────────────────────────────────────────────
-# 6. Model Parameters
-# ────────────────────────────────────────────────────────────
 HAR_LAGS = [1, 5, 22]               # daily, weekly, monthly
 GARCH_P, GARCH_Q = 1, 1             # GARCH(1,1) default order
 
-# ────────────────────────────────────────────────────────────
-# 7. Signal & Trading Parameters
-# ────────────────────────────────────────────────────────────
 NOTIONAL_CAPITAL = 1_000_000         # total capital allocated ($)
 CONTRACT_MULTIPLIER = 100            # SPX option multiplier (×100)
 SIGNAL_ZSCORE_ENTRY = 1.0            # enter when |z| > threshold
@@ -106,14 +78,10 @@ POSITION_HOLD_DAYS = 5               # max hold for Friday-expiring weeklies; ca
 MAX_HOLD_DAYS_WEEKLIES = 5           # do not test hold_days > this in param sweeps (options expire weekly)
 STOP_LOSS_PCT = 0.25                 # exit when unrealized loss reaches 25% of that trade's value
 
-# ────────────────────────────────────────────────────────────
-# 8. Plotting Defaults
-# ────────────────────────────────────────────────────────────
 FIGURE_DPI = 150
 FIGURE_SIZE = (14, 7)
 STYLE = "seaborn-v0_8-whitegrid"
 
-# Project color palette (academic / coherent across report and figures)
 PLOT_COLORS = {
     "50": "#FCE9E9",
     "100": "#F6C1C1",
@@ -127,7 +95,6 @@ PLOT_COLORS = {
     "900": "#3E0909",
     "950": "#160303",
 }
-# Ordered list for cycling (light to dark)
 PLOT_PALETTE = [PLOT_COLORS[k] for k in ("200", "400", "600", "800", "300", "700", "500", "900")]
 PLOT_PRIMARY = PLOT_COLORS["500"]
 PLOT_SECONDARY = PLOT_COLORS["700"]
@@ -137,9 +104,6 @@ PLOT_NEUTRAL = "#4a4a4a"
 PLOT_POSITIVE = "#2d7d2d"   # green for long vol / positive
 PLOT_NEGATIVE = PLOT_COLORS["600"]   # for short vol / negative
 
-# ────────────────────────────────────────────────────────────
-# 9. FOMC / Macro Event Dates  (236 meetings, 1996–2025)
-# ────────────────────────────────────────────────────────────
 FOMC_DATES = [
     # 1996
     "1996-01-30", "1996-03-26", "1996-05-21", "1996-07-02",

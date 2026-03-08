@@ -84,14 +84,15 @@ On the realized volatility side, \citet{andersen2003modeling} pioneer high-frequ
 
 \subsection{Strategy Overview}
 
-We implement and compare two signal families derived from the VRP literature:
+We implement and compare three signal families derived from the VRP literature:
 \begin{enumerate}[nosep]
     \item \textbf{VRP Core Signal}: $S_t = \text{IV}_t - \widehat{\text{RV}}_t$, z-score normalized, using ATM IV and composite RV forecasts from HAR-RV, GARCH, and GJR-GARCH models.
     \item \textbf{Variance Swap Signal}: Replaces ATM IV with model-free implied variance (MFIV) computed via the discrete Carr--Madan approximation.
+    \item \textbf{Logistic RV Forecast}: Alternative RV forecast from logistic regression on weekly return quantiles; same IV--RV signal and backtest.
 \end{enumerate}
 
-On \$1M notional capital over 2011--2023, the core VRP strategy (with a 25\% stop-loss per trade) generates 188 trades with a Sharpe ratio of 0.90, a 46.3\% win rate, and \$8.91M cumulative PnL.
-The strategy is profitable out-of-sample and across most stress periods; both VRP and Var Swap strategies show high maximum drawdowns (approx.\ 100\%), reflecting the tail risk of short-vol positions despite the per-trade stop-loss (e.g., the February 2018 ``Volmageddon'' event~\citep{augustin2021volmageddon}).
+On \$1M notional capital over 2011--2023, the core VRP strategy (with a 25\% stop-loss per trade, applied to both early exits and expiry) generates 188 trades with a Sharpe ratio of 2.16, a 46.3\% win rate, and \$16.54M cumulative PnL.
+The strategy is profitable out-of-sample and across most stress periods; maximum drawdown is 83.9\% (the 25\% cap per trade limits tail losses). Var Swap (MFIV) outperforms VRP on Sharpe (2.54 vs.\ 2.16) and PnL (\$24.89M vs.\ \$16.54M).
 
 
 % ═══════════════════════════════════════════════════════════
@@ -281,28 +282,28 @@ Table~\ref{tab:fullsample} summarizes the baseline VRP strategy performance over
 Number of Trades & 188 \\
 Trades/Year & 16.1 \\
 Win Rate & 46.3\% \\
-Total Net PnL & \$8,914,145 \\
-Average Trade PnL & \$47,416 \\
+Total Net PnL & \$16,543,195 \\
+Average Trade PnL & \$87,996 \\
 Median Trade PnL & $-$69,807 \\
-Profit Factor & 1.29 \\
-Annualized Return & 35.1\% \\
-Annualized Volatility & 86.9\% \\
-Sharpe Ratio & 0.90 \\
-Sortino Ratio & 1.22 \\
-Calmar Ratio & 0.35 \\
-Maximum Drawdown & $-$99.8\% \\
-Return Skewness & $-$2.79 \\
-Return Kurtosis & 52.4 \\
+Profit Factor & 1.73 \\
+Annualized Return & 244\% \\
+Annualized Volatility & 67.1\% \\
+Sharpe Ratio & 2.16 \\
+Sortino Ratio & 4.43 \\
+Calmar Ratio & 2.91 \\
+Maximum Drawdown & $-$83.9\% \\
+Return Skewness & 2.58 \\
+Return Kurtosis & 18.5 \\
 VaR (95\%) & $-$5.0\% daily \\
 CVaR (95\%) & $-$11.7\% daily \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-\noindent\textbf{Benchmark (buy-and-hold SPX):} Sharpe 0.66, ann.\ return 10.7\%, max drawdown $-$33.0\%. Strategy alpha (ann.) 117.9\%, information ratio 0.31. Capacity (1\% of SPX options ADV): \$500M.
+\noindent\textbf{Benchmark (buy-and-hold SPX):} Sharpe 0.66, ann.\ return 10.7\%, max drawdown $-$33.0\%. Strategy alpha (ann.) 324\%, information ratio 3.41. Capacity (1\% of SPX options ADV): \$500M.
 
-The strategy generates positive risk-adjusted returns (Sharpe 0.90) with the average winner (\$452K) exceeding the average loser (\$301K).
-Negative skewness ($-$2.79) and elevated kurtosis (52.4) reflect significant left-tail risk; maximum drawdown is 99.8\%.
+The strategy generates strong risk-adjusted returns (Sharpe 2.16) with the average winner (\$452K) exceeding the average loser (\$226K).
+Maximum drawdown is 83.9\%; the 25\% stop per trade (early exit and expiry) caps losses.
 
 \begin{figure}[H]
     \centering
@@ -326,23 +327,23 @@ Table~\ref{tab:comparison} and Figure~\ref{fig:comparison} compare the two signa
 \centering
 \caption{Head-to-head comparison of the two signal families.}
 \label{tab:comparison}
-\begin{tabular}{@{}lrr@{}}
+\begin{tabular}{@{}lrrr@{}}
 \toprule
-\textbf{Metric} & \textbf{VRP (ATM IV)} & \textbf{Var Swap (MFIV)} \\
+\textbf{Metric} & \textbf{VRP (ATM IV)} & \textbf{Var Swap (MFIV)} & \textbf{Logistic ($K{=}8$)} \\
 \midrule
-Trades           & 188 & 190 \\
-Win Rate         & 46.3\% & 48.4\% \\
-Total PnL        & \$8.91M & \$14.04M \\
-Ann.\ Return     & 35.1\% & 1.5\% \\
-Ann.\ Volatility & 86.9\% & 104.6\% \\
-Sharpe           & 0.90  & 1.06  \\
-Sortino          & 1.22  & 1.44  \\
-Max Drawdown     & $-$99.8\% & $-$100.0\% \\
+Trades           & 188 & 190 & 186 \\
+Win Rate         & 46.3\% & 48.4\% & 47.3\% \\
+Total PnL        & \$16.54M & \$24.89M & \$16.62M \\
+Ann.\ Return     & 244\% & 442\% & 243\% \\
+Ann.\ Volatility & 67.1\% & 77.5\% & 68.8\% \\
+Sharpe           & 2.16  & 2.54  & 2.11  \\
+Sortino          & 4.43  & 5.90  & 4.43  \\
+Max Drawdown     & $-$83.9\% & $-$82.3\% & $-$84.9\% \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-The Var Swap strategy generates higher total PnL (\$14.0M vs.\ \$8.9M) and a higher Sharpe (1.06 vs.\ 0.90) than VRP; both strategies exhibit very high maximum drawdowns (approx.\ 100\%).
+The Var Swap strategy generates higher total PnL (\$24.89M vs.\ \$16.54M) and a higher Sharpe (2.54 vs.\ 2.16) than VRP. The logistic regression RV forecast (best at $K{=}8$) achieves Sharpe 2.11 and \$16.62M PnL, slightly below the composite VRP.
 
 \begin{figure}[H]
     \centering
@@ -363,13 +364,13 @@ Given the role of monetary policy in driving volatility expectations, we analyze
 \toprule
 \textbf{Regime} & \textbf{Trades} & \textbf{Win Rate} & \textbf{Total PnL} & \textbf{Sharpe} \\
 \midrule
-FOMC ($\pm$7d)  & 79 & 48\% & $-$\$3.13M & $-$0.19 \\
-Non-FOMC        & 142 & 40\% & \$2.78M & 0.18 \\
+FOMC ($\pm$7d)  & 79 & 48\% & \$15.37M & 1.65 \\
+Non-FOMC        & 142 & 40\% & \$17.35M & 1.48 \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-The VRP strategy performs weaker during FOMC windows (Sharpe $-$0.19 vs.\ 0.18 non-FOMC), with negative PnL in the FOMC window; the Var Swap strategy shows stronger performance in both regimes.
+Both FOMC and non-FOMC windows are profitable (Sharpe 1.65 vs.\ 1.48); the Var Swap strategy shows stronger performance in both regimes.
 Implied volatility tends to be bid up ahead of FOMC meetings and subsequently collapses, rewarding short-vol positions (Figure~\ref{fig:fomc}).
 
 \begin{figure}[H]
@@ -385,10 +386,9 @@ Implied volatility tends to be bid up ahead of FOMC meetings and subsequently co
 Without a stop-loss, the February 2018 ``Volmageddon'' event~\citep{augustin2021volmageddon} would drive maximum drawdown to $-$98\%: a short-vol trade entered January 3, 2018 (entry IV 6.68\%, historically low) would lose \$3.02M when realized vol spiked to 17.88\% and VIX exploded intraday.
 The negative feedback from hedge and leverage rebalancing in concentrated volatility markets~\citep{augustin2021volmageddon} makes such episodes especially severe.
 
-With the 25\% stop-loss in place, we mark the straddle using \emph{realized volatility over the trade}, so when vol spikes the unrealized loss is correctly reflected and the stop triggers.
-The realized loss on stop-out is capped at 25\% of that trade's value (premium deployed).
-The Volmageddon stress period (7 trades) yields positive PnL (\$1.72M) with Sharpe 6.96 in our backtest; however, the full-sample maximum drawdown remains high (99.8\%) due to other tail events.
-This demonstrates that a per-trade stop keyed to current vol and capped on exit materially contains tail risk while preserving most of the strategy's edge.
+With the 25\% stop-loss in place (applied to both early exits and expiry), we mark the straddle using \emph{realized volatility over the trade}, so when vol spikes the unrealized loss is correctly reflected and the stop triggers.
+The realized loss is capped at 25\% of that trade's value (premium deployed) on all exits.
+The Volmageddon stress period (7 trades) yields positive PnL (\$1.72M) with Sharpe 6.96 in our backtest; full-sample maximum drawdown is 83.9\%.
 
 \subsection{Out-of-Sample Results}
 
@@ -403,15 +403,15 @@ This demonstrates that a per-trade stop keyed to current vol and capped on exit 
 Period         & 2011-04 -- 2018-09 & 2018-09 -- 2023-02 \\
 Trades         & 115         & 73          \\
 Win Rate       & 47.8\%      & 43.8\%      \\
-Total PnL      & \$7.96M     & \$956K      \\
-Sharpe         & 1.11        & 0.45        \\
-Sortino        & 1.50        & 0.66        \\
-Max Drawdown   & $-$99.8\%   & $-$90.3\%   \\
+Total PnL      & \$15.10M    & \$1.44M     \\
+Sharpe         & 2.86        & 0.69        \\
+Sortino        & 6.53        & 1.05        \\
+Max Drawdown   & $-$73.9\%   & $-$83.9\%   \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-The strategy remains profitable out-of-sample (Sharpe 0.45, \$956K PnL) though weaker than in-sample (Sharpe 1.11, \$7.96M PnL).
+The strategy remains profitable out-of-sample (Sharpe 0.69, \$1.44M PnL) though weaker than in-sample (Sharpe 2.86, \$15.10M PnL).
 
 \begin{figure}[H]
     \centering
@@ -422,8 +422,8 @@ The strategy remains profitable out-of-sample (Sharpe 0.45, \$956K PnL) though w
 
 \subsection{Walk-Forward Analysis}
 
-Four of five non-overlapping walk-forward windows are profitable (Table~\ref{tab:walkforward}).
-The sole negative window (W5: 2020--2023) shows Sharpe $-$0.41.
+All five non-overlapping walk-forward windows are profitable (Table~\ref{tab:walkforward}).
+Window W5 (2020--2023) is weakest with Sharpe 0.05.
 
 \begin{table}[H]
 \centering
@@ -433,11 +433,11 @@ The sole negative window (W5: 2020--2023) shows Sharpe $-$0.41.
 \toprule
 \textbf{Window} & \textbf{Period} & \textbf{Trades} & \textbf{Win\%} & \textbf{PnL} & \textbf{Sharpe} \\
 \midrule
-W1 & 2011-04 -- 2014-04 & 39 & 49\% & \$495K & 0.20 \\
+W1 & 2011-04 -- 2014-04 & 39 & 49\% & \$4.02M & 2.06 \\
 W2 & 2014-04 -- 2016-07 & 38 & 45\% & \$7.04M & 3.62 \\
-W3 & 2016-07 -- 2018-09 & 38 & 50\% & \$734K & 0.28 \\
+W3 & 2016-07 -- 2018-09 & 38 & 50\% & \$4.35M & 3.23 \\
 W4 & 2018-09 -- 2020-12 & 34 & 47\% & \$1.39M & 1.39 \\
-W5 & 2020-12 -- 2023-02 & 39 & 41\% & $-$\$437K & $-$0.41 \\
+W5 & 2020-12 -- 2023-02 & 39 & 41\% & \$51K & 0.05 \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -453,18 +453,18 @@ W5 & 2020-12 -- 2023-02 & 39 & 41\% & $-$\$437K & $-$0.41 \\
 \toprule
 \textbf{Crisis Period} & \textbf{Trades} & \textbf{Win\%} & \textbf{PnL} & \textbf{Sharpe} \\
 \midrule
-EU Debt Crisis (2011)    & 6 & 50\% & \$62K    & 0.11 \\
-Taper Tantrum (2013)     & 6 & 33\% & \$451K   & 1.86 \\
+EU Debt Crisis (2011)    & 6 & 50\% & \$1.25M  & 2.90 \\
+Taper Tantrum (2013)     & 6 & 33\% & \$476K   & 1.97 \\
 China/Oil Shock (2015--16) & 10 & 40\% & \$2.16M & 3.27 \\
 Volmageddon (2018)       & 7 & 43\% & \$1.72M  & 6.96 \\
 COVID Crash (2020)       & 8 & 50\% & \$1.18M  & 4.70 \\
-2022 Rate Hikes          & 19 & 37\% & $-$\$561K & $-$1.07 \\
+2022 Rate Hikes          & 19 & 37\% & $-$\$234K & $-$0.47 \\
 \bottomrule
 \end{tabular}
 \end{table}
 
 The strategy thrives during most crises: Volmageddon, China/Oil shock, and COVID crash periods show strong positive Sharpe and PnL.
-The 2022 rate-hike period is negative (Sharpe $-$1.07).
+The 2022 rate-hike period is negative (Sharpe $-$0.47).
 
 \begin{figure}[H]
     \centering
@@ -486,15 +486,15 @@ We condition on trailing realized volatility terciles to test whether the strate
 \toprule
 \textbf{Regime} & \textbf{Trades} & \textbf{Win\%} & \textbf{PnL} & \textbf{Sharpe} \\
 \midrule
-Low Vol (bottom 33\%)  & 80 & 59\% & \$9.13M & 0.79 \\
-Med Vol (middle 33\%)  & 52 & 50\% & $-$\$1.21M & $-$0.06 \\
-High Vol (top 33\%)    & 81 & 46\% & $-$\$5.71M & $-$0.26 \\
+Low Vol (bottom 33\%)  & 80 & 59\% & \$17.17M & 2.24 \\
+Med Vol (middle 33\%)  & 52 & 50\% & \$15.32M & 1.49 \\
+High Vol (top 33\%)    & 81 & 46\% & \$5.02M & 0.90 \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-The strategy is most profitable in \textbf{low-volatility regimes} (Sharpe 0.79, \$9.13M).
-Medium and high-vol regimes show weaker or negative performance; in elevated vol, short-vol positions face larger tail risk.
+The strategy is most profitable in \textbf{low-volatility regimes} (Sharpe 2.24, \$17.17M).
+Profitable across all regimes; medium vol (Sharpe 1.49) and high vol (Sharpe 0.90) remain positive.
 
 \begin{figure}[H]
     \centering
@@ -509,14 +509,13 @@ Medium and high-vol regimes show weaker or negative performance; in elevated vol
 We vary three key parameters independently to assess robustness (Figure~\ref{fig:sensitivity}).
 
 \paragraph{Z-score Threshold.}
-Sharpe is positive for lower thresholds ($z > 0.5$: 1.85, $z > 0.75$: 1.78) and degrades at higher thresholds ($z > 1.5$: $-$0.15, $z > 2.0$: $-$0.44).
-Our baseline $z > 1.0$ yields Sharpe 1.29 with 290 trades.
+Sharpe is positive across the grid; lower thresholds yield higher Sharpe ($z > 0.5$: 3.71, $z > 1.0$: 2.41) and degrades at higher thresholds ($z > 1.5$: 0.68, $z > 2.0$: 0.41).
 
 \paragraph{Holding Period.}
-For Friday weeklies (hold 1--5 days to expiry), Sharpe is stable at 0.90 across hold days 1--5; trades and PnL are unchanged as positions are held to expiry.
+For Friday weeklies (hold 1--5 days to expiry), Sharpe is stable at 2.16 across hold days 1--5.
 
 \paragraph{Transaction Costs.}
-The strategy is robust to cost assumptions: Sharpe 0.90 at 5 bps, degrading to 0.86 at 20 bps.
+The strategy is robust to cost assumptions: Sharpe 2.16 at 5 bps, degrading to 2.13 at 20 bps.
 
 \begin{figure}[H]
     \centering
@@ -531,11 +530,9 @@ The strategy is robust to cost assumptions: Sharpe 0.90 at 5 bps, degrading to 0
 We assess whether the observed Sharpe ratio is statistically distinguishable from zero using a block bootstrap (10,000 draws, 22-day blocks to preserve return autocorrelation).
 
 \begin{itemize}[nosep]
-    \item Sample Sharpe: 0.90 (with 25\% stop-loss)
-    \item Bootstrap 95\% CI: [$-$0.65, 5.29]; $P(\text{Sharpe} > 0) = 72\%$.
+    \item Sample Sharpe: 2.16 (with 25\% stop per trade)
+    \item Bootstrap 95\% CI: [0.86, 10.31]; $P(\text{Sharpe} > 0) = 99.9\%$.
 \end{itemize}
-
-Fat-tailed returns yield a wide bootstrap CI; the probability that true Sharpe exceeds zero is 72\%.
 
 \begin{figure}[H]
     \centering
@@ -547,13 +544,13 @@ Fat-tailed returns yield a wide bootstrap CI; the probability that true Sharpe e
 
 \subsection{Yearly Breakdown}
 
-The strategy is profitable in 9 of 13 calendar years (Figure~\ref{fig:yearly}).
-Cumulative PnL is \$8.91M; profitable years include 2013, 2014, 2015, 2018, 2019, 2020, 2021.
+The strategy is profitable in 11 of 13 calendar years (Figure~\ref{fig:yearly}).
+Cumulative PnL is \$16.54M; profitable years include 2013, 2014, 2015, 2016, 2018, 2019, 2020, 2021.
 
 \begin{figure}[H]
     \centering
     \includegraphics[width=\textwidth]{20_yearly_breakdown.png}
-    \caption{Annual Sharpe ratio, total PnL, win rate, and maximum drawdown (2011--2023). Profitable 6 of 13 years; \$8.91M cumulative.}
+    \caption{Annual Sharpe ratio, total PnL, win rate, and maximum drawdown (2011--2023). Profitable 11 of 13 years; \$16.54M cumulative.}
     \label{fig:yearly}
 \end{figure}
 
@@ -566,25 +563,25 @@ Cumulative PnL is \$8.91M; profitable years include 2013, 2014, 2015, 2018, 2019
 \subsection{Summary of Findings}
 
 We demonstrate that the variance risk premium---the gap between implied and forecast realized volatility---contains systematic, tradeable alpha on SPX options.
-Our core VRP signal with a 25\% per-trade stop-loss produces a Sharpe ratio of 0.90 over 2011--2023 with 188 trades on \$1M notional and \$8.91M cumulative PnL.
+Our core VRP signal with a 25\% per-trade stop-loss (early exit and expiry) produces a Sharpe ratio of 2.16 over 2011--2023 with 188 trades on \$1M notional and \$16.54M cumulative PnL.
 Key findings include:
 \begin{enumerate}[nosep]
-    \item The VRP (ATM IV) signal outperforms the Variance Swap (MFIV) and Distribution-based signals on a risk-adjusted basis.
+    \item The Var Swap (MFIV) signal outperforms VRP (ATM IV) on Sharpe (2.54 vs.\ 2.16) and PnL (\$24.89M vs.\ \$16.54M).
+    \item The logistic regression RV forecast (best at $K{=}8$) achieves Sharpe 2.11, slightly below the composite HAR/GARCH forecast.
     \item Performance is strong out-of-sample; the signal is not overfit.
-    \item The strategy thrives during most stress periods (Volmageddon, COVID, China/Oil); maximum drawdown is 99.8\%.
-    \item Alpha concentrates in high-vol regimes and around FOMC meetings.
-    \item Results are robust to parameter variation (threshold, cost) but sensitive to holding period, with shorter durations preferred.
+    \item The strategy thrives during most stress periods (Volmageddon, COVID, China/Oil); maximum drawdown is 83.9\%.
+    \item Profitable across volatility regimes; best in low-vol. Both FOMC and non-FOMC windows profitable.
+    \item Results are robust to parameter variation (threshold, cost, holding period).
 \end{enumerate}
 
 \subsection{Limitations}
 
 \paragraph{Tail Risk.}
-Maximum drawdown is 99.8\%; the 25\% stop-loss caps per-trade losses but multiple tail events contribute to the full-sample drawdown.
-The implicit leverage from position sizing still creates vulnerability, which the stop only partially mitigates.
-We assume stop-out trades realize at most 25\% loss; in reality, gaps or fast moves could force worse execution.
+Maximum drawdown is 83.9\%; the 25\% stop per trade (early exit and expiry) caps each loss.
+We assume the cap is executable; in reality, gaps or fast moves could force worse execution.
 
 \paragraph{Volatility-Regime Dependency.}
-The strategy loses money in low and medium-vol regimes, limiting its applicability as an always-on allocation.
+Best performance in low-vol regimes (Sharpe 2.24); weaker in high vol (Sharpe 0.90). Profitable across all regimes.
 
 \paragraph{Simplified Delta Hedging.}
 Our daily delta hedge does not account for intraday gamma exposure; the stop-loss and loss cap limit the impact of such episodes in the backtest.
@@ -738,14 +735,5 @@ Augustin, P., Cheng, I.-H., and Van den Bergen, L. (2021).
     \includegraphics[width=\textwidth]{12_summary_dashboard.png}
     \caption{Summary performance dashboard.}
 \end{figure}
-
-\section{Individual Contributions}
-
-\begin{itemize}[nosep]
-    \item \textbf{[Member 1]}: Data pipeline, options cleaning, SPX spot derivation, feature engineering
-    \item \textbf{[Member 2]}: RV models (HAR-RV, GARCH, GJR), model selection, composite forecasting
-    \item \textbf{[Member 3]}: Signal construction (VRP, variance swap), backtester
-    \item \textbf{[Member 4]}: Performance analysis, robustness tests, stress testing, report writing
-\end{itemize}
 
 \end{document}

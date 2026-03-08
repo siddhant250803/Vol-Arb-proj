@@ -2,22 +2,15 @@
 
 **MS&E 244 · Stanford University · Group 4**
 
-A systematic volatility-trading strategy that tests whether SPX options implied
-volatility (IV) is systematically richer than subsequently realised volatility
-(RV), and whether the IV-RV spread (variance risk premium) is tradeable after
-realistic costs and hedging frictions.
+A systematic volatility-trading strategy that tests whether SPX options implied volatility (IV) is systematically richer than subsequently realised volatility (RV), and whether the IV–RV spread (variance risk premium) is tradeable after realistic costs and hedging frictions.
 
 ---
 
 ## Research Objective
 
-1. **Variance Risk Premium (VRP):** Risk-neutral implied variance typically
-   exceeds physical realised variance. We quantify this premium and test its
-   predictive power.
-2. **Tradeable Signal:** Construct a z-scored VRP signal and trade delta-hedged
-   ATM straddles when the signal is extreme.
-3. **Surface Mispricing:** Explore skew and term-structure signals as secondary
-   alpha sources.
+1. **Variance Risk Premium (VRP):** Risk-neutral implied variance typically exceeds physical realised variance. We quantify this premium and test its predictive power.
+2. **Tradeable Signal:** Construct a z-scored VRP signal and trade delta-hedged ATM straddles when the signal is extreme.
+3. **Strategies Compared:** VRP (ATM IV), Var Swap (MFIV), and Logistic regression RV forecast.
 
 ---
 
@@ -26,31 +19,36 @@ realistic costs and hedging frictions.
 ```
 Vol-Arb-proj/
 ├── src/                          # Core Python modules
-│   ├── __init__.py               # Package docstring
-│   ├── config.py                 # All paths, constants, parameters
+│   ├── config.py                 # Paths, constants, parameters
 │   ├── data_loader.py            # Load & clean options, yields, SPX
-│   ├── feature_engineering.py    # ATM IV, model-free IV, realised vol
-│   ├── rv_models.py              # HAR-RV, GARCH, EGARCH, GJR-GARCH
-│   ├── signals.py                # VRP, skew, term-structure, distribution
+│   ├── feature_engineering.py    # ATM IV, MFIV, realised vol (at expiry)
+│   ├── rv_models.py              # HAR-RV, GARCH, GJR-GARCH
+│   ├── signals.py                # VRP, Var Swap signals
 │   ├── backtest.py               # Delta-hedged straddle backtester
 │   ├── performance.py            # Sharpe, Sortino, drawdowns, robustness
-│   └── visualization.py          # 12+ publication-quality plots
+│   └── visualization.py         # Publication-quality plots
 │
-├── run_pipeline.py               # One-command end-to-end execution
-├── requirements.txt              # Python dependencies
+├── run_pipeline.py               # End-to-end pipeline
+├── run_comparison.py             # VRP vs Var Swap comparison
+├── run_robustness.py             # OOS, stress, regime, param sensitivity
+├── run_logistic_signal.py        # Logistic RV forecast backtest
+├── run_logistic_quantile_sweep.py # Logistic quantile sweep (K=3..10)
+├── logistic.py                   # Logistic regression RV forecast
+├── requirements.txt
 │
 ├── Group 4 MS&E244/              # Raw data (not committed)
 │   ├── Options/
-│   │   ├── spx-weeklies-filtered.csv
-│   │   ├── spx-weeklies-all.csv
-│   │   └── options-data-dictionary.csv
 │   └── Risk-Free/
-│       └── yield_panel_daily_frequency_monthly_maturity.csv
 │
-└── output/                       # Generated outputs
-    ├── figures/                   # All visualisations (PNG)
-    ├── data/                      # Processed CSVs
-    └── reports/                   # Performance report (TXT)
+├── output/                       # Generated outputs
+│   ├── figures/                  # PNG charts (01–20)
+│   ├── data/                     # feature_table, signal_table, trades, etc.
+│   └── reports/                  # performance_report, strategy_comparison, robustness_report
+│
+└── report/
+    ├── report.tex                # Full academic report
+    ├── presentation.tex         # Beamer slides
+    └── pipeline_flow.tex        # Pipeline flow diagram
 ```
 
 ---
@@ -62,7 +60,6 @@ Vol-Arb-proj/
 ```bash
 python3 -m venv venv
 source venv/bin/activate      # macOS / Linux
-# venv\Scripts\activate       # Windows
 ```
 
 ### 2. Install dependencies
@@ -74,195 +71,75 @@ pip install -r requirements.txt
 ### 3. Run the pipeline
 
 ```bash
-# Full run (all data, all models)
+# Full run (figures 01–12)
 python run_pipeline.py
 
-# Quick development run (50K rows, faster)
+# Quick dev run (50K rows)
 python run_pipeline.py --quick
+
+# Full run + comparison, robustness, logistic sweep (figures 01–20)
+python run_pipeline.py --all-figures
 ```
 
-### 4. View results
+### 4. Run individual scripts
 
-All outputs are saved to `output/`:
+```bash
+python run_comparison.py       # VRP vs Var Swap
+python run_robustness.py       # OOS, stress, regime, param sensitivity
+python run_logistic_signal.py  # Logistic RV (K=4)
+python run_logistic_quantile_sweep.py  # Logistic quantile sweep
+```
 
-| Path | Contents |
-|------|----------|
-| `output/figures/*.png` | 12 publication-quality charts |
-| `output/data/feature_table.csv` | Master feature table |
-| `output/data/signal_table.csv` | Trading signals |
-| `output/data/trades.csv` | Individual trade records |
-| `output/data/daily_pnl.csv` | Daily PnL series |
-| `output/reports/performance_report.txt` | Full performance report |
+### 5. Build report and presentation
 
-**Beamer presentation:** `report/presentation.tex` — concise academic slides (all experiments and results) using the project color palette. Build: `cd report && pdflatex presentation.tex` → `presentation.pdf` (16 slides).
+```bash
+cd report
+pdflatex report.tex
+pdflatex presentation.tex
+```
+
+---
+
+## Key Results (2011–2023, 25% stop per trade)
+
+| Strategy | Trades | Sharpe | Total PnL | Max DD |
+|----------|--------|--------|-----------|--------|
+| VRP (ATM IV, composite RV) | 188 | 2.16 | $16.54M | −83.9% |
+| Var Swap (MFIV) | 190 | 2.54 | $24.89M | −82.3% |
+| Logistic (K=8) | 186 | 2.11 | $16.62M | −84.9% |
+
+- **Var Swap** outperforms VRP on Sharpe and PnL.
+- **25% stop per trade** (early exit and expiry) caps losses; max DD ~84%.
+- Profitable in **11 of 13 years**; strong in stress (Volmageddon, COVID); profitable across regimes.
+- **Bootstrap:** P(Sharpe > 0) = 99.9%; 95% CI [0.86, 10.31].
 
 ---
 
 ## Pipeline Stages
 
-The pipeline runs 8 stages sequentially:
-
-### Stage 1 — Data Loading & Cleaning
-- Loads OptionMetrics SPX weekly options (millions of rows over 2005--2023)
-- Loads Treasury yield panel (16K days, 1-360 month maturities)
-- Applies quality filters: min bid ($0.05), max spread (100%), DTE (7-60 days),
-  moneyness band (±20%)
-- Extracts daily SPX price series with log-returns
-
-### Stage 2 — Feature Engineering
-- **ATM IV (30d):** Interpolates near-the-money option IV to constant 30-day
-  maturity using delta-weighted averaging
-- **Model-Free IV:** Carr-Madan discrete variance swap approximation using OTM
-  options within ±5% of forward
-- **Realised Variance:** Rolling daily (1d), weekly (5d), and monthly (22d) RV
-- **Bipower Variation:** Jump-robust integrated variance estimator
-- **Forward RV:** Target variable (next 22-day realised variance)
-- **FOMC Flags:** Binary event-window indicators
-
-### Stage 3 — RV Forecasting Models
-- **HAR-RV** (Corsi 2009): Heterogeneous autoregressive model using daily,
-  weekly, monthly RV components
-- **GARCH(1,1)** (Bollerslev 1986): Standard generalised autoregressive
-  conditional heteroskedasticity
-- **GJR-GARCH** (Glosten-Jagannathan-Runkle): Asymmetric leverage effect
-- **Composite:** Equal-weight average of active models
-- All models use expanding-window estimation (min 252 days)
-
-### Stage 4 — Signal Construction
-- **VRP Signal:** S = IV - forecast_RV, z-scored over rolling 252-day window
-  - z > +1.0 → short vol (IV is rich)
-  - z < -1.0 → long vol (IV is cheap)
-- **Skew Signal:** Implied tail probability minus realised tail frequency
-- **Term-Structure Signal:** Short-dated minus long-dated ATM IV
-- **Distribution Signal:** Risk-neutral vs physical tail divergence
-
-### Stage 5 — Backtesting
-- Trades delta-hedged ATM straddles:
-  - Short vol: sell straddle when VRP z-score > +1
-  - Long vol: buy straddle when VRP z-score < -1
-- Daily delta-hedging via Black-Scholes straddle delta
-- 22-day default holding period
-- Transaction costs: 5 bps per leg
-
-### Stage 6 — Performance Analysis
-- **Return metrics:** Sharpe, Sortino, Calmar ratios
-- **Risk metrics:** Max drawdown, VaR, CVaR, skewness, kurtosis
-- **Trade stats:** Win rate, profit factor, average PnL
-- **Robustness:** Sub-period stability, parameter sensitivity grid
-  (holding period × transaction cost)
-
-### Stage 7 — Visualisation (12 figures)
-1. SPX price level and daily returns
-2. Options data summary (volume, IV distribution, moneyness, DTE)
-3. IV vs realised volatility overlay with VRP spread
-4. RV forecast models vs actual
-5. VRP signal (level, z-score, discrete signal)
-6. Surface signals (skew, term-structure, distribution)
-7. Cumulative PnL and drawdown
-8. Trade-level analysis (PnL distribution, direction breakdown, entry spread)
-9. Monthly returns heatmap
-10. Robustness by sub-period (Sharpe bars)
-11. Parameter sensitivity heatmap (Sharpe across hold × cost)
-12. Summary dashboard (6-panel overview)
-
-### Stage 8 — Export
-- All processed DataFrames saved to CSV
-- Performance report saved as text file
+1. **Data Loading** — OptionMetrics SPX weeklies, Treasury yields, filters (bid, spread, DTE, moneyness).
+2. **Feature Engineering** — ATM IV, MFIV, RV at expiry; FOMC flags.
+3. **RV Forecasting** — HAR-RV, GARCH, GJR; equal-weight composite.
+4. **Signal Construction** — VRP z-score; enter when |z| > 1.
+5. **Backtesting** — Delta-hedged straddles, hold to expiry (1–5d), 25% stop per trade, 5 bps cost.
+6. **Performance** — Sharpe, Sortino, drawdown, trade stats.
+7. **Visualisation** — 20 figures (SPX, IV/RV, signals, PnL, robustness, etc.).
+8. **Export** — CSVs and reports.
 
 ---
 
-## Key Results (Full Dataset)
+## Outputs
 
-| Metric | Value |
-|--------|-------|
-| Annualised Return | 165.2% |
-| Annualised Volatility | 31.4% |
-| Sharpe Ratio | 5.26 |
-| Sortino Ratio | 6.46 |
-| Calmar Ratio | 2.08 |
-| Win Rate | 50.5% |
-| Total Net PnL | \$7.63M |
-| Average Trade PnL | \$81,991 |
-| Max Drawdown | $-$79.4% |
-| Profit Factor | 1.87 |
-| Number of Trades | 93 |
-| Trades/Year | 8.0 |
-
-**Benchmark (buy-and-hold SPX):** Sharpe 0.62, Ann. return 10.9%, Max DD $-$33.0%. Strategy alpha (ann.) 88.5%, information ratio 2.44.
-
-**Risk:** Return skewness $-$1.19, excess kurtosis 11.7; VaR (95%) $-$1.56% daily, CVaR (95%) $-$3.56% daily. Capacity (illustrative, 1% of SPX options ADV): \$500M.
-
----
-
-## Module Documentation
-
-### `src/config.py`
-Central configuration. All paths, column mappings, and tunable parameters.
-Modify this file to change data sources, filter thresholds, model parameters,
-or trading rules.
-
-### `src/data_loader.py`
-- `load_options_raw()` — Read OptionMetrics CSV
-- `clean_options()` — Apply quality filters, compute derived columns
-- `extract_spx_prices()` — Daily SPX close from options data
-- `load_yield_curve()` — Treasury zero-coupon yield panel
-- `load_all_data()` — One-call convenience wrapper
-
-### `src/feature_engineering.py`
-- `compute_atm_iv()` — Delta-weighted ATM IV, constant-maturity interpolation
-- `compute_model_free_iv()` — Carr-Madan variance swap
-- `compute_realized_variance()` — Multi-horizon rolling RV
-- `compute_bipower_variation()` — Jump-robust BV
-- `compute_forward_rv()` — Forward-looking target RV
-- `add_event_flags()` — FOMC/macro event windows
-- `build_feature_table()` — Master feature table orchestrator
-
-### `src/rv_models.py`
-- `HARRV` class — fit/predict/summary for HAR-RV
-- `fit_garch()` — Fit GARCH/EGARCH/GJR models via `arch` package
-- `garch_rolling_forecast()` — Expanding-window GARCH forecasts
-- `run_all_rv_models()` — Run all models, composite forecast
-
-### `src/signals.py`
-- `compute_vrp_signal()` — Core VRP z-score signal
-- `compute_skew_signal()` — Skew mispricing (implied vs realised tail)
-- `compute_term_structure_signal()` — Short vs long IV
-- `compute_distribution_signal()` — RN vs physical distribution divergence
-- `build_signal_table()` — All signals merged
-
-### `src/backtest.py`
-- `bs_straddle_price()` — Black-Scholes ATM straddle pricing
-- `simulate_delta_hedge()` — Daily delta-hedge PnL simulation
-- `run_backtest()` — Full entry/exit/hedge/cost backtest engine
-- `trades_to_dataframe()` — Convert Trade objects to DataFrame
-
-### `src/performance.py`
-- `sharpe_ratio()`, `sortino_ratio()`, `calmar_ratio()`
-- `compute_drawdown()` — Drawdown series and max DD
-- `return_statistics()` — Full distribution stats (VaR, CVaR, skew, kurtosis)
-- `trade_statistics()` — Trade-level metrics
-- `full_performance_report()` — Comprehensive report
-- `robustness_by_subperiod()` — Sub-sample stability
-- `robustness_by_parameter()` — Hold period × cost sensitivity
-
-### `src/visualization.py`
-12 plotting functions generating publication-quality figures, all auto-saved
-to `output/figures/`.
-
----
-
-## References
-
-- Corsi, F. (2009). *A Simple Approximate Long-Memory Model of Realized
-  Volatility* (HAR-RV).
-- Carr, P. & Madan, D. (1998). *Towards a Theory of Volatility Trading.*
-- Bollerslev, T., Tauchen, G. & Zhou, H. (2009). *Expected Stock Returns and
-  Variance Risk Premia.*
-- Carr, P. & Wu, L. (2009). *Variance Risk Premia.*
-- Hansen, P.R., Huang, Z. & Shek, H.H. (2012). *Realized GARCH.*
-- Breeden, D.T. & Litzenberger, R.H. (1978). *Prices of State-Contingent
-  Claims Implicit in Option Prices.*
-- Gatheral, J. (2006). *The Volatility Surface: A Practitioner's Guide.*
+| Path | Contents |
+|------|----------|
+| `output/figures/*.png` | 20 charts |
+| `output/data/feature_table.csv` | Master feature table |
+| `output/data/signal_table.csv` | Trading signals |
+| `output/data/trades.csv` | Trade records |
+| `output/data/daily_pnl.csv` | Daily PnL |
+| `output/reports/performance_report.txt` | Full performance |
+| `output/reports/strategy_comparison.txt` | VRP vs Var Swap |
+| `output/reports/robustness_report.txt` | OOS, stress, regime, params |
 
 ---
 
