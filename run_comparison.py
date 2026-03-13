@@ -220,7 +220,7 @@ def plot_strategy_comparison(results, pnl_dict, spx_df=None):
     for name in strategies:
         if name in pnl_dict and not pnl_dict[name].empty:
             pdf = pnl_dict[name]
-            cum = (1 + pdf["daily_return"]).cumprod()
+            cum = (1 + pdf["daily_return"].fillna(0)).cumprod()
             dd = (cum - cum.cummax()) / cum.cummax()
             ax.plot(pdf["date"], dd * 100, label=name, lw=0.8)
     ax.set_title("Drawdown (%)", fontsize=12, fontweight="bold")

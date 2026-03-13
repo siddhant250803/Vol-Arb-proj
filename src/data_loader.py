@@ -1,10 +1,11 @@
 """
 Data loading, cleaning, and preparation for OptionMetrics SPX options.
-Extracts SPX prices, applies quality filters, computes derived columns.
+Downloads SPX prices from Yahoo Finance, applies quality filters, computes derived columns.
 """
 
 import numpy as np
 import pandas as pd
+import yfinance as yf
 from pathlib import Path
 
 from src.config import (
@@ -214,16 +215,14 @@ def clean_options(df, min_dte=None, max_dte=None):
 
 def extract_spx_prices(df):
     """
-    Extract a unique daily SPX close-price series from the options data.
-
-    Works whether ``spx_price`` was in the raw file or derived from
-    ``forward_price``.
+    Download daily SPX closing prices from Yahoo Finance (^GSPC) covering
+    the date range of the options data, with a 1-year buffer on each side
+    for rolling-window model burn-in.
 
     Parameters
     ----------
     df : pd.DataFrame
-        Options data that contains a ``spx_price`` column (original or
-        derived).
+        Options data (used only to determine the date range).
 
     Returns
     -------
@@ -231,27 +230,31 @@ def extract_spx_prices(df):
         Columns: date, spx_close, log_return, abs_return
         Sorted by date, one row per trading day.
     """
-    if COL["spot"] not in df.columns:
-        df = _derive_spot_price(df)
+    date_col = COL["date"] if COL["date"] in df.columns else "date"
+    dates = pd.to_datetime(df[date_col])
+    start = (dates.min() - pd.DateOffset(years=1)).strftime("%Y-%m-%d")
+    end = (dates.max() + pd.DateOffset(years=1)).strftime("%Y-%m-%d")
 
-    prices = (
-        df[[COL["date"], COL["spot"]]]
-        .drop_duplicates(subset=[COL["date"]])
-        .rename(columns={COL["date"]: "date", COL["spot"]: "spx_close"})
-        .sort_values("date")
-        .reset_index(drop=True)
-    )
+    print(f"[data_loader] Downloading SPX (^GSPC) from Yahoo Finance ({start} to {end}) ...")
+    ticker = yf.download("^GSPC", start=start, end=end, auto_adjust=True, progress=False)
 
-    prices = prices.dropna(subset=["spx_close"])
-    prices["log_return"] = np.log(
-        prices["spx_close"] / prices["spx_close"].shift(1)
-    )
+    if isinstance(ticker.columns, pd.MultiIndex):
+        ticker.columns = ticker.columns.get_level_values(0)
+
+    prices = pd.DataFrame({
+        "date": ticker.index,
+        "spx_close": ticker["Close"].values,
+    }).reset_index(drop=True)
+    prices["date"] = pd.to_datetime(prices["date"]).dt.tz_localize(None)
+    prices = prices.dropna(subset=["spx_close"]).sort_values("date").reset_index(drop=True)
+
+    prices["log_return"] = np.log(prices["spx_close"] / prices["spx_close"].shift(1))
     prices["abs_return"] = prices["log_return"].abs()
     prices = prices.dropna(subset=["log_return"]).reset_index(drop=True)
 
     print(
         f"[data_loader] SPX price series: {len(prices)} trading days "
-        f"({prices['date'].min().date()} → {prices['date'].max().date()})"
+        f"({prices['date'].min().date()} to {prices['date'].max().date()})"
     )
     return prices
 
@@ -333,9 +336,16 @@ def load_all_data(nrows=None):
         "rf"           – 1-month risk-free rate series
     """
     raw = load_options_raw(nrows=nrows)
-    options = clean_options(raw)                          # DTE 5–9 (entry-day only)
-    options_wide = clean_options(raw, min_dte=5, max_dte=60)   # DTE 5–60 (for term-structure)
-    spx = extract_spx_prices(raw)        # use raw to keep full price history
+    spx = extract_spx_prices(raw)
+
+    # Merge yfinance SPX closes into raw options so clean_options
+    # uses real closing prices for moneyness instead of deriving from strikes.
+    spx_map = spx[["date", "spx_close"]].rename(columns={"spx_close": COL["spot"]})
+    raw = raw.drop(columns=[COL["spot"]], errors="ignore")
+    raw = raw.merge(spx_map, on="date", how="left")
+
+    options = clean_options(raw)
+    options_wide = clean_options(raw, min_dte=5, max_dte=60)
     yields = load_yield_curve()
     rf = get_risk_free_rate(yields, target_months=1)
 

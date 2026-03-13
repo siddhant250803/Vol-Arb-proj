@@ -11,3 +11,4 @@ scikit-learn
 openpyxl
 tqdm
 joblib
+yfinance
