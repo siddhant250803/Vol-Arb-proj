@@ -1,33 +1,13 @@
-# ============================================================
-# Vol-Arb Project Dependencies
-# MS&E 244 — IV vs Forecast RV Trading Strategy
-# ============================================================
-
-# --- Core scientific stack ---
 numpy
 pandas
 scipy
-
-# --- Visualization ---
 matplotlib
 seaborn
-
-# --- Econometrics / time-series ---
-arch              # GARCH family models
-statsmodels       # HAR-RV, regression, diagnostics
-
-# --- Performance & risk metrics ---
-empyrical-reloaded   # Sharpe, Sortino, drawdown, Calmar (maintained fork of Quantopian empyrical)
-pytz                # required by empyrical-reloaded
-
-# --- Machine learning (optional extensions) ---
+arch
+statsmodels
+empyrical-reloaded
+pytz
 scikit-learn
-
-# --- Data handling ---
-openpyxl          # Excel I/O (if needed)
-
-# --- Progress bars ---
+openpyxl
 tqdm
-
-# --- Warnings / utilities ---
 joblib

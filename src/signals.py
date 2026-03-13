@@ -1,16 +1,6 @@
-# ============================================================
-# signals.py — Trading Signal Construction
-# ============================================================
 """
-Builds trading signals:
-
-    1. **Level Signal** — Variance Risk Premium (VRP)
-       S = IV − forecast_RV ;  z-score normalised
-
-    2. **Surface Relative-Value** — Skew & term-structure mispricing
-       Compare implied vs physical downside probabilities
-
-All signals output a standardised z-score ∈ ℝ on each trading date.
+Trading signal construction: VRP (IV − forecast RV), skew, term-structure.
+All signals output z-scores on each trading date.
 """
 
 import numpy as np
@@ -21,10 +11,6 @@ from src.config import (
     SIGNAL_LOOKBACK,
 )
 
-
-# ════════════════════════════════════════════════════════════
-# 1.  VARIANCE RISK PREMIUM (VRP) — Level Signal
-# ════════════════════════════════════════════════════════════
 
 def compute_vrp_signal(feature_df, iv_col="atm_iv_at_expiry", rv_col=None):
     """
@@ -54,8 +40,7 @@ def compute_vrp_signal(feature_df, iv_col="atm_iv_at_expiry", rv_col=None):
     """
     df = feature_df.copy()
 
-    # ── Select RV forecast column (must be model forecast, never future data) ─
-    FORBIDDEN_RV_COLS = {"fwd_rv", "fwd_rvol"}  # future realized vol = label only, would leak
+    FORBIDDEN_RV_COLS = {"fwd_rv", "fwd_rvol"}
     if rv_col is None:
         for candidate in [
             "composite_rv_forecast",
@@ -66,17 +51,13 @@ def compute_vrp_signal(feature_df, iv_col="atm_iv_at_expiry", rv_col=None):
                 rv_col = candidate
                 break
     if rv_col in FORBIDDEN_RV_COLS:
-        raise ValueError("rv_col must not be fwd_rv/fwd_rvol (future data); use forecast columns only.")
+        raise ValueError("rv_col must not be fwd_rv/fwd_rvol; use forecast columns only.")
     if rv_col is None:
         raise ValueError("No valid RV forecast column found in feature_df.")
 
-    # ── Convert variance forecasts to volatility if needed ─
-    # If the IV column is in vol units (~0.05–0.80) and rv_col is in
-    # variance units (~0.0025–0.64), convert rv to vol first.
     rv_vals = df[rv_col].dropna()
     iv_vals = df[iv_col].dropna()
 
-    # Heuristic: if median RV >> median IV², RV is in variance terms
     if rv_vals.median() > 2 * (iv_vals.median() ** 2):
         rv_numeric = pd.to_numeric(df[rv_col], errors="coerce").clip(lower=0)
         df["rv_forecast_vol"] = np.sqrt(rv_numeric.astype(float))
@@ -84,15 +65,11 @@ def compute_vrp_signal(feature_df, iv_col="atm_iv_at_expiry", rv_col=None):
     else:
         rv_use = rv_col
 
-    # ── Compute VRP ────────────────────────────────────────
     df["vrp"] = df[iv_col] - df[rv_use]
-
-    # ── Z-score normalisation ──────────────────────────────
     df["vrp_mean"] = df["vrp"].rolling(SIGNAL_LOOKBACK, min_periods=60).mean()
     df["vrp_std"] = df["vrp"].rolling(SIGNAL_LOOKBACK, min_periods=60).std()
     df["vrp_zscore"] = (df["vrp"] - df["vrp_mean"]) / df["vrp_std"].replace(0, np.nan)
 
-    # ── Discrete signal: +1 (short vol), −1 (long vol), 0 (flat)
     df["signal"] = 0
     df.loc[df["vrp_zscore"] > SIGNAL_ZSCORE_ENTRY, "signal"] = 1    # short vol
     df.loc[df["vrp_zscore"] < -SIGNAL_ZSCORE_ENTRY, "signal"] = -1  # long vol
@@ -111,10 +88,6 @@ def compute_vrp_signal(feature_df, iv_col="atm_iv_at_expiry", rv_col=None):
 
     return out
 
-
-# ════════════════════════════════════════════════════════════
-# 2.  SURFACE RELATIVE-VALUE SIGNAL
-# ════════════════════════════════════════════════════════════
 
 def compute_skew_signal(options_df, spx_df):
     """
@@ -138,9 +111,8 @@ def compute_skew_signal(options_df, spx_df):
     pd.DataFrame
         Columns: date, implied_tail_prob, realised_tail_prob, skew_signal
     """
-    # ── Realised tail frequency ────────────────────────────
     ret = spx_df.set_index("date")["log_return"]
-    tail_threshold = -0.02  # 2% daily drop
+    tail_threshold = -0.02
 
     realised_tail = (
         (ret < tail_threshold)
@@ -150,19 +122,15 @@ def compute_skew_signal(options_df, spx_df):
     )
     realised_tail.name = "realised_tail_prob"
 
-    # ── Implied tail probability from OTM puts ─────────────
-    # Use puts with moneyness ≈ 0.95 (5% OTM)
     puts = options_df[options_df["cp_flag"] == "P"].copy()
     puts = puts[(puts["moneyness"] >= 0.93) & (puts["moneyness"] <= 0.97)]
 
-    # Group by date, take median |delta| as implied tail probability
     implied_tail = (
         puts.groupby("date")["delta"]
         .apply(lambda x: x.abs().median())
         .rename("implied_tail_prob")
     )
 
-    # ── Merge and compute signal ───────────────────────────
     combo = pd.DataFrame({"implied_tail_prob": implied_tail,
                           "realised_tail_prob": realised_tail}).dropna()
     combo["skew_signal"] = combo["implied_tail_prob"] - combo["realised_tail_prob"]
@@ -190,10 +158,8 @@ def compute_term_structure_signal(options_df):
         Columns: date, iv_short, iv_long, term_signal
     """
     df = options_df.copy()
-    # Restrict to near-ATM
     df = df[(df["moneyness"] >= 0.97) & (df["moneyness"] <= 1.03)]
 
-    # Short-dated: 7–14 DTE; Long-dated: 30–60 DTE
     short = df[(df["dte"] >= 7) & (df["dte"] <= 14)]
     long_ = df[(df["dte"] >= 30) & (df["dte"] <= 60)]
 
@@ -208,11 +174,7 @@ def compute_term_structure_signal(options_df):
     return combo
 
 
-# ════════════════════════════════════════════════════════════
-# 3.  MASTER SIGNAL TABLE
-# ════════════════════════════════════════════════════════════
-
-def build_signal_table(feature_df, options_df, spx_df):
+def build_signal_table(feature_df, options_df, spx_df, options_wide_df=None):
     """
     Compute all signals and merge into one DataFrame.
 
@@ -221,27 +183,23 @@ def build_signal_table(feature_df, options_df, spx_df):
     feature_df : pd.DataFrame
         Master feature table (with RV forecasts merged).
     options_df : pd.DataFrame
-        Cleaned options data.
+        Entry-day options (DTE 5–9), used for the VRP and skew signals.
     spx_df : pd.DataFrame
         Daily SPX prices / returns.
+    options_wide_df : pd.DataFrame, optional
+        Wide-DTE options (DTE 5–60), used for term-structure signal.
+        Falls back to options_df if not provided (will yield empty term signal).
 
     Returns
     -------
     pd.DataFrame
         Date-indexed table with all signals.
     """
-    print("\n" + "=" * 60)
-    print("  BUILDING SIGNAL TABLE")
-    print("=" * 60)
-
-    # ── VRP (primary signal) ───────────────────────────────
     vrp = compute_vrp_signal(feature_df)
-
-    # ── Surface signals ────────────────────────────────────
     skew = compute_skew_signal(options_df, spx_df)
-    term = compute_term_structure_signal(options_df)
+    term_src = options_wide_df if options_wide_df is not None else options_df
+    term = compute_term_structure_signal(term_src)
 
-    # ── Merge ──────────────────────────────────────────────
     signals = vrp.copy()
     signals = signals.merge(skew, on="date", how="left")
     signals = signals.merge(term, on="date", how="left")

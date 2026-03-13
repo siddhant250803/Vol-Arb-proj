@@ -1,28 +1,7 @@
 #!/usr/bin/env python3
-# ============================================================
-# run_robustness.py — Robustness, Out-of-Sample & Stress Tests
-# ============================================================
 """
-Comprehensive robustness battery for the VRP strategy:
-
-    A. Out-of-sample test (train 60 % / test 40 %)
-    B. Walk-forward analysis (5 non-overlapping windows)
-    C. Yearly performance breakdown
-    D. Stress-period analysis (GFC, Volmageddon, COVID, …)
-    E. Volatility-regime conditioning (high-vol vs low-vol)
-    F. Parameter sensitivity grid (threshold × hold-days × cost)
-    G. Bootstrap Sharpe confidence intervals
-
-All backtests hold only until option expiry (Friday weeklies). Hold-days sensitivity uses max 5d (≤ expiry).
-
-Produces:
-    output/figures/15_oos_walkforward.png
-    output/figures/16_stress_periods.png
-    output/figures/17_regime_analysis.png
-    output/figures/18_param_sensitivity.png
-    output/figures/19_bootstrap_sharpe.png
-    output/figures/20_yearly_breakdown.png
-    output/reports/robustness_report.txt
+Robustness battery: OOS, walk-forward, stress periods, regime analysis,
+parameter sensitivity, bootstrap Sharpe. Outputs figures 15–20 and robustness_report.txt.
 """
 
 import sys
@@ -54,11 +33,9 @@ from src.rv_models import run_all_rv_models
 from src.signals import compute_vrp_signal
 from src.backtest import run_backtest, trades_to_dataframe
 from src.performance import (
-    sharpe_ratio, sortino_ratio, annualised_return,
-    annualised_volatility, compute_drawdown, calmar_ratio,
-    return_statistics, benchmark_returns_from_spx, benchmark_comparison,
-    probabilistic_sharpe_ratio,
-    returns_on_full_calendar,
+    compute_drawdown, return_statistics, benchmark_returns_from_spx,
+    sharpe_ratio, probabilistic_sharpe_ratio, realized_returns_from_trades,
+    _realized_ann_return, _realized_ann_vol, _realized_sharpe, _realized_sortino,
 )
 
 warnings.filterwarnings("ignore")
@@ -84,42 +61,49 @@ def _save(fig, name):
 
 
 def _metrics(dr):
-    """Return a dict of standard metrics from a daily-return Series (incl. PSR)."""
-    if len(dr) < 10:
+    """Return a dict of standard metrics (realized returns, sparse)."""
+    if dr.empty or dr.dropna().shape[0] < 10:
         return {k: np.nan for k in [
             "ann_ret", "ann_vol", "sharpe", "sortino",
             "calmar", "max_dd", "skew", "kurt", "n_days", "psr",
         ]}
-    dd = compute_drawdown(dr)
-    cal = annualised_return(dr) / abs(dd["max_drawdown"]) if dd["max_drawdown"] != 0 else np.inf
+    dd = compute_drawdown(dr, sparse_realized=True)
+    cal = _realized_ann_return(dr) / abs(dd["max_drawdown"]) if dd["max_drawdown"] != 0 else np.inf
+    dr_exits = dr.dropna()
     return {
-        "ann_ret": annualised_return(dr),
-        "ann_vol": annualised_volatility(dr),
-        "sharpe": sharpe_ratio(dr),
-        "sortino": sortino_ratio(dr),
+        "ann_ret": _realized_ann_return(dr),
+        "ann_vol": _realized_ann_vol(dr),
+        "sharpe": _realized_sharpe(dr),
+        "sortino": _realized_sortino(dr),
         "calmar": cal,
         "max_dd": dd["max_drawdown"],
-        "skew": dr.skew(),
-        "kurt": dr.kurtosis(),
+        "skew": dr_exits.skew(),
+        "kurt": dr_exits.kurtosis(),
         "n_days": len(dr),
-        "psr": probabilistic_sharpe_ratio(dr, sr_ref=0.0),
+        "psr": probabilistic_sharpe_ratio(dr_exits, sr_ref=0.0),
     }
 
 
-def _dr_for_metrics(pnl_df, spx_df):
-    """Calendar-aligned daily returns for metrics (flat days = 0)."""
+def _dr_for_metrics(pnl_df, spx_df, trades_df=None):
+    """Realized returns for metrics (full calendar, NaN on non-exit days)."""
+    if trades_df is not None and not trades_df.empty and spx_df is not None:
+        return realized_returns_from_trades(trades_df, spx_df)
     if pnl_df.empty:
         return pd.Series(dtype=float)
-    if spx_df is not None and not spx_df.empty:
-        dr = returns_on_full_calendar(pnl_df, spx_df)
-        if dr is not None and len(dr) >= 2:
-            return dr.dropna()
-    return pnl_df["daily_return"].dropna()
+    return pnl_df.set_index("date")["daily_return"]
 
 
-# ════════════════════════════════════════════════════════════
-#  A.  OUT-OF-SAMPLE TEST
-# ════════════════════════════════════════════════════════════
+def _compute_metrics(trades, pnl, spx_df):
+    """Compute metrics using proper full-calendar returns from trade exits.
+
+    Avoids the pitfall of annualizing over a compressed Friday-only calendar
+    by building the return series from trade exit dates on the full SPX calendar.
+    """
+    if not trades or pnl.empty:
+        return {}
+    tdf = trades_to_dataframe(trades)
+    return _metrics(_dr_for_metrics(pnl, spx_df, trades_df=tdf))
+
 
 def oos_test(signal_df, spx_df, train_frac=0.60):
     """Split signal chronologically: train first 60 %, test last 40 %."""
@@ -140,7 +124,7 @@ def oos_test(signal_df, spx_df, train_frac=0.60):
         if pnl.empty:
             results[label] = {"n_trades": 0}
             continue
-        m = _metrics(_dr_for_metrics(pnl, spx_df))
+        m = _compute_metrics(trades, pnl, spx_df)
         m["n_trades"] = len(trades)
         m["total_pnl"] = sum(t.net_pnl for t in trades)
         m["win_rate"] = sum(1 for t in trades if t.net_pnl > 0) / max(len(trades), 1)
@@ -164,10 +148,6 @@ def oos_test(signal_df, spx_df, train_frac=0.60):
     return results, split_date
 
 
-# ════════════════════════════════════════════════════════════
-#  B.  WALK-FORWARD ANALYSIS
-# ════════════════════════════════════════════════════════════
-
 def walk_forward(signal_df, spx_df, n_windows=5):
     """Non-overlapping chronological windows."""
     _log("\n" + "=" * 65)
@@ -183,7 +163,7 @@ def walk_forward(signal_df, spx_df, n_windows=5):
         end = dates[min((i + 1) * chunk - 1, len(dates) - 1)]
         window_sig = signal_df[(signal_df["date"] >= start) & (signal_df["date"] <= end)]
         trades, pnl = run_backtest(window_sig, spx_df)
-        m = _metrics(_dr_for_metrics(pnl, spx_df)) if not pnl.empty else {}
+        m = _compute_metrics(trades, pnl, spx_df) if not pnl.empty else {}
         m["window"] = i + 1
         m["start"] = start
         m["end"] = end
@@ -203,10 +183,6 @@ def walk_forward(signal_df, spx_df, n_windows=5):
     return results
 
 
-# ════════════════════════════════════════════════════════════
-#  C.  YEARLY BREAKDOWN
-# ════════════════════════════════════════════════════════════
-
 def yearly_breakdown(signal_df, spx_df):
     """Backtest each calendar year independently."""
     _log("\n" + "=" * 65)
@@ -221,7 +197,7 @@ def yearly_breakdown(signal_df, spx_df):
     for y in years:
         ysig = signal_df[signal_df["year"] == y]
         trades, pnl = run_backtest(ysig, spx_df)
-        m = _metrics(_dr_for_metrics(pnl, spx_df)) if not pnl.empty else {}
+        m = _compute_metrics(trades, pnl, spx_df) if not pnl.empty else {}
         m["year"] = y
         m["n_trades"] = len(trades)
         m["total_pnl"] = sum(t.net_pnl for t in trades) if trades else 0
@@ -240,10 +216,6 @@ def yearly_breakdown(signal_df, spx_df):
 
     return results
 
-
-# ════════════════════════════════════════════════════════════
-#  D.  STRESS-PERIOD ANALYSIS
-# ════════════════════════════════════════════════════════════
 
 STRESS_PERIODS = {
     "GFC (2008)":           ("2008-01-01", "2009-03-31"),
@@ -269,7 +241,7 @@ def stress_test(signal_df, spx_df):
             (signal_df["date"] >= s) & (signal_df["date"] <= e)
         ]
         trades, pnl = run_backtest(window, spx_df)
-        m = _metrics(_dr_for_metrics(pnl, spx_df)) if not pnl.empty else {}
+        m = _compute_metrics(trades, pnl, spx_df) if not pnl.empty else {}
         m["period"] = name
         m["n_trades"] = len(trades)
         m["total_pnl"] = sum(t.net_pnl for t in trades) if trades else 0
@@ -285,10 +257,6 @@ def stress_test(signal_df, spx_df):
 
     return results
 
-
-# ════════════════════════════════════════════════════════════
-#  E.  VOLATILITY-REGIME ANALYSIS
-# ════════════════════════════════════════════════════════════
 
 def regime_analysis(signal_df, spx_df, features_df):
     """Split into high-vol and low-vol regimes based on trailing RV."""
@@ -317,7 +285,7 @@ def regime_analysis(signal_df, spx_df, features_df):
     for label, sub in regimes.items():
         sub = sub.dropna(subset=["signal"])
         trades, pnl = run_backtest(sub, spx_df)
-        m = _metrics(_dr_for_metrics(pnl, spx_df)) if not pnl.empty else {}
+        m = _compute_metrics(trades, pnl, spx_df) if not pnl.empty else {}
         m["n_trades"] = len(trades)
         m["total_pnl"] = sum(t.net_pnl for t in trades) if trades else 0
         m["win_rate"] = (sum(1 for t in trades if t.net_pnl > 0)
@@ -332,10 +300,6 @@ def regime_analysis(signal_df, spx_df, features_df):
 
     return results
 
-
-# ════════════════════════════════════════════════════════════
-#  F.  PARAMETER SENSITIVITY GRID
-# ════════════════════════════════════════════════════════════
 
 def param_sensitivity(features_df, spx_df):
     """Vary z-score threshold, holding period, and cost; report Sharpe."""
@@ -354,7 +318,7 @@ def param_sensitivity(features_df, spx_df):
     for thr in thresholds:
         sig = _build_vrp_signal_with_threshold(features_df, thr)
         trades, pnl = run_backtest(sig, spx_df)
-        m = _metrics(_dr_for_metrics(pnl, spx_df)) if not pnl.empty else {}
+        m = _compute_metrics(trades, pnl, spx_df) if not pnl.empty else {}
         m["threshold"] = thr
         m["n_trades"] = len(trades)
         m["total_pnl"] = sum(t.net_pnl for t in trades) if trades else 0
@@ -370,7 +334,7 @@ def param_sensitivity(features_df, spx_df):
     sig_base = compute_vrp_signal(features_df)
     for hd in hold_days:
         trades, pnl = run_backtest(sig_base, spx_df, hold_days=hd)
-        m = _metrics(_dr_for_metrics(pnl, spx_df)) if not pnl.empty else {}
+        m = _compute_metrics(trades, pnl, spx_df) if not pnl.empty else {}
         m["hold_days"] = hd
         m["n_trades"] = len(trades)
         m["total_pnl"] = sum(t.net_pnl for t in trades) if trades else 0
@@ -385,7 +349,7 @@ def param_sensitivity(features_df, spx_df):
     cost_results = []
     for c in costs:
         trades, pnl = run_backtest(sig_base, spx_df, cost_bps=c)
-        m = _metrics(_dr_for_metrics(pnl, spx_df)) if not pnl.empty else {}
+        m = _compute_metrics(trades, pnl, spx_df) if not pnl.empty else {}
         m["cost_bps"] = c
         m["n_trades"] = len(trades)
         m["total_pnl"] = sum(t.net_pnl for t in trades) if trades else 0
@@ -434,33 +398,38 @@ def _build_vrp_signal_with_threshold(features_df, threshold):
     return out
 
 
-# ════════════════════════════════════════════════════════════
-#  G.  BOOTSTRAP SHARPE CONFIDENCE INTERVALS
-# ════════════════════════════════════════════════════════════
-
-def bootstrap_sharpe(pnl_df, spx_df=None, n_boot=10000, ci=0.95):
-    """Block-bootstrap the Sharpe ratio for statistical significance."""
+def bootstrap_sharpe(pnl_df, spx_df=None, n_boot=10000, ci=0.95, trades_df=None):
+    """Block-bootstrap the Sharpe ratio for statistical significance (realized returns)."""
     _log("\n" + "=" * 65)
     _log("  G. BOOTSTRAP SHARPE CONFIDENCE INTERVALS")
     _log("=" * 65)
 
-    dr_series = _dr_for_metrics(pnl_df, spx_df)
-    dr = dr_series.values if isinstance(dr_series, pd.Series) else dr_series
+    dr_series = _dr_for_metrics(pnl_df, spx_df, trades_df=trades_df)
+    if isinstance(dr_series, pd.Series):
+        dr = dr_series.dropna().values
+    else:
+        dr = np.array(dr_series)
+    dr = dr[~np.isnan(dr)] if len(dr) > 0 else np.array([])
     n = len(dr)
-    block_size = 22  # monthly blocks to preserve autocorrelation
+    block_size = min(22, max(n // 5, 1))
     if n <= block_size:
-        _log(f"  Skipping bootstrap: only {n} observations (need > {block_size}).")
+        _log(f"  Skipping bootstrap: only {n} exit observations (need > {block_size}).")
         return np.array([]), np.nan, np.nan, np.nan
 
     n_blocks = max(n // block_size, 1)
     rng = np.random.RandomState(42)
     boot_sharpes = []
+    n_days = (dr_series.index.max() - dr_series.index.min()).days if isinstance(dr_series, pd.Series) and len(dr_series.dropna()) > 0 else n * 5
+    T_years = max(n_days / 365.25, 1 / 365.25)
+    periods_per_year = n / T_years
 
     for _ in range(n_boot):
-        starts = rng.randint(0, n - block_size + 1, size=n_blocks)
-        sample = np.concatenate([dr[s:s + block_size] for s in starts])[:n]
-        ann_r = ((1 + sample).prod()) ** (252 / len(sample)) - 1
-        ann_v = sample.std() * np.sqrt(252)
+        idx = rng.randint(0, n - block_size + 1, size=n_blocks)
+        sample = np.concatenate([dr[s:s + block_size] for s in idx])[:n]
+        if len(sample) < 2:
+            continue
+        ann_r = ((1 + sample).prod()) ** (1 / T_years) - 1
+        ann_v = sample.std() * np.sqrt(periods_per_year)
         if ann_v > 0:
             boot_sharpes.append(ann_r / ann_v)
 
@@ -471,17 +440,13 @@ def bootstrap_sharpe(pnl_df, spx_df=None, n_boot=10000, ci=0.95):
     mean_s = boot_sharpes.mean()
     pct_positive = (boot_sharpes > 0).mean()
 
-    _log(f"\n  Sample Sharpe:    {sharpe_ratio(dr_series):.2f}")
+    _log(f"\n  Sample Sharpe:    {_realized_sharpe(dr_series):.2f}")
     _log(f"  Bootstrap Mean:   {mean_s:.2f}")
     _log(f"  95% CI:           [{lo:.2f}, {hi:.2f}]")
     _log(f"  P(Sharpe > 0):    {pct_positive:.1%}")
 
     return boot_sharpes, lo, hi, mean_s
 
-
-# ════════════════════════════════════════════════════════════
-#  PLOTTING
-# ════════════════════════════════════════════════════════════
 
 def plot_oos_walkforward(oos_results, split_date, wf_results, spx_df=None):
     fig = plt.figure(figsize=(20, 10))
@@ -806,17 +771,12 @@ def plot_yearly(yearly_results, spx_df=None):
     _save(fig, "20_yearly_breakdown")
 
 
-# ════════════════════════════════════════════════════════════
-#  MAIN
-# ════════════════════════════════════════════════════════════
-
 def main():
     _log("\n" + "=" * 65)
     _log("  ROBUSTNESS, OUT-OF-SAMPLE & STRESS TESTING SUITE")
     _log("=" * 65)
     _log("  (All backtests hold only until option expiry; no holding past expiry.)")
 
-    # ── Load & prepare data ────────────────────────────────
     _log("\nLoading data ...")
     data = load_all_data()
     _log("Building features ...")
@@ -834,45 +794,32 @@ def main():
     # Full-sample backtest for baseline
     _log("\nFull-sample baseline backtest ...")
     full_trades, full_pnl = run_backtest(signal_df, spx_df)
-    full_m = _metrics(_dr_for_metrics(full_pnl, spx_df))
+    full_m = _compute_metrics(full_trades, full_pnl, spx_df)
     _log(f"  Baseline: {len(full_trades)} trades, "
          f"Sharpe={full_m['sharpe']:.2f}, MaxDD={full_m['max_dd']:.1%}")
 
-    # ── A. Out-of-sample ──────────────────────────────────
     oos_res, split_date = oos_test(signal_df, spx_df)
-
-    # ── B. Walk-forward ───────────────────────────────────
     wf_res = walk_forward(signal_df, spx_df, n_windows=5)
-
-    # ── C. Yearly breakdown ───────────────────────────────
     yearly_res = yearly_breakdown(signal_df, spx_df)
-
-    # ── D. Stress periods ─────────────────────────────────
     stress_res = stress_test(signal_df, spx_df)
-
-    # ── E. Vol-regime analysis ────────────────────────────
     regime_res = regime_analysis(signal_df, spx_df, augmented)
-
-    # ── F. Parameter sensitivity ──────────────────────────
     thresh_res, hold_res, cost_res = param_sensitivity(augmented, spx_df)
 
-    # ── G. Bootstrap Sharpe ───────────────────────────────
-    boot_sharpes, lo, hi, mean_s = bootstrap_sharpe(full_pnl, spx_df=spx_df)
+    full_tdf = trades_to_dataframe(full_trades)
+    boot_sharpes, lo, hi, mean_s = bootstrap_sharpe(full_pnl, spx_df=spx_df, trades_df=full_tdf)
 
-    # ── Save report ───────────────────────────────────────
     REPORTS_DIR.mkdir(parents=True, exist_ok=True)
     report_path = REPORTS_DIR / "robustness_report.txt"
     with open(report_path, "w") as f:
         f.write("\n".join(REPORT))
     _log(f"\n  Report saved → {report_path}")
 
-    # ── Generate plots ────────────────────────────────────
     _log("\n  Generating plots ...")
     plot_oos_walkforward(oos_res, split_date, wf_res, spx_df=spx_df)
     plot_stress_periods(stress_res, spx_df=spx_df)
     plot_regime_analysis(regime_res)
     plot_param_sensitivity(thresh_res, hold_res, cost_res)
-    full_psr = probabilistic_sharpe_ratio(_dr_for_metrics(full_pnl, spx_df), sr_ref=0.0) if not full_pnl.empty else None
+    full_psr = probabilistic_sharpe_ratio(_dr_for_metrics(full_pnl, spx_df, trades_df=full_tdf), sr_ref=0.0) if not full_pnl.empty else None
     if len(boot_sharpes) > 0:
         plot_bootstrap(boot_sharpes, lo, hi, mean_s, psr=full_psr)
     plot_yearly(yearly_res, spx_df=spx_df)

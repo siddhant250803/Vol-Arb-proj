@@ -1,18 +1,6 @@
-# ============================================================
-# visualization.py — Plotting Utilities & Dashboards
-# ============================================================
 """
-All plotting functions for the volatility arbitrage project.
-Organised into sections:
-
-    A. Data exploration plots
-    B. Feature / signal diagnostic plots
-    C. Backtest performance plots
-    D. Robustness & sensitivity plots
-    E. Summary dashboard
-
-Every function saves its figure to output/figures/ AND returns
-the matplotlib Figure for optional inline display.
+Plotting utilities for data exploration, signals, backtest performance,
+robustness analysis, and summary dashboards.
 """
 
 import numpy as np
@@ -27,7 +15,6 @@ from src.config import (
     PLOT_LIGHT, PLOT_ACCENT, PLOT_NEUTRAL, PLOT_POSITIVE, PLOT_NEGATIVE,
 )
 
-# ── Global style ───────────────────────────────────────────
 try:
     plt.style.use(STYLE)
 except OSError:
@@ -43,10 +30,6 @@ def _save(fig, name):
     print(f"  [viz] Saved → {path.relative_to(FIGURES_DIR.parent.parent)}")
     return fig
 
-
-# ════════════════════════════════════════════════════════════
-# A.  DATA EXPLORATION
-# ════════════════════════════════════════════════════════════
 
 def plot_spx_price_and_returns(spx_df):
     """
@@ -83,25 +66,21 @@ def plot_options_summary(options_df):
     """
     fig, axes = plt.subplots(2, 2, figsize=(16, 10))
 
-    # Volume over time
     vol_ts = options_df.groupby("date")["volume"].sum()
     axes[0, 0].plot(vol_ts.index, vol_ts.values, lw=0.5, color=PLOT_SECONDARY)
     axes[0, 0].set_title("Total Daily Option Volume")
     axes[0, 0].set_ylabel("Contracts")
 
-    # IV distribution
     axes[0, 1].hist(options_df["impl_volatility"].dropna(), bins=100,
                     color=PLOT_ACCENT, alpha=0.7, edgecolor="none")
     axes[0, 1].set_title("Implied Volatility Distribution")
     axes[0, 1].set_xlabel("IV")
 
-    # Moneyness
     axes[1, 0].hist(options_df["moneyness"], bins=100,
                     color=PLOT_COLORS["300"], alpha=0.7, edgecolor="none")
     axes[1, 0].set_title("Strike Moneyness (K/S)")
     axes[1, 0].axvline(1.0, color=PLOT_PRIMARY, ls="--", lw=1)
 
-    # DTE
     axes[1, 1].hist(options_df["dte"], bins=60,
                     color=PLOT_COLORS["600"], alpha=0.7, edgecolor="none")
     axes[1, 1].set_title("Days to Expiration")
@@ -113,10 +92,6 @@ def plot_options_summary(options_df):
     fig.tight_layout()
     return _save(fig, "02_options_summary")
 
-
-# ════════════════════════════════════════════════════════════
-# B.  FEATURE & SIGNAL DIAGNOSTICS
-# ════════════════════════════════════════════════════════════
 
 def plot_iv_vs_rv(feature_df):
     """
@@ -250,16 +225,11 @@ def plot_skew_and_term_signals(signal_df):
     return _save(fig, "06_surface_signals")
 
 
-# ════════════════════════════════════════════════════════════
-# C.  BACKTEST PERFORMANCE
-# ════════════════════════════════════════════════════════════
-
 def plot_cumulative_pnl(pnl_df):
     """Cumulative PnL and drawdown chart."""
     fig, axes = plt.subplots(2, 1, figsize=FIGURE_SIZE, sharex=True,
                              gridspec_kw={"height_ratios": [2, 1]})
 
-    # Cumulative PnL
     axes[0].plot(pnl_df["date"], pnl_df["cumulative_pnl"],
                  lw=1.2, color=PLOT_COLORS["800"])
     axes[0].fill_between(pnl_df["date"], 0, pnl_df["cumulative_pnl"],
@@ -269,8 +239,8 @@ def plot_cumulative_pnl(pnl_df):
                       fontsize=14, fontweight="bold")
     axes[0].axhline(0, color=PLOT_NEUTRAL, lw=0.5)
 
-    # Drawdown
-    cum_ret = (1 + pnl_df["daily_return"]).cumprod()
+    r = pnl_df["daily_return"].fillna(0)
+    cum_ret = (1 + r).cumprod()
     peak = cum_ret.cummax()
     dd = (cum_ret - peak) / peak
     axes[1].fill_between(pnl_df["date"], dd, 0, color=PLOT_ACCENT, alpha=0.4)
@@ -291,14 +261,12 @@ def plot_trade_analysis(trades_df):
 
     fig, axes = plt.subplots(2, 2, figsize=(16, 10))
 
-    # PnL distribution
     axes[0, 0].hist(trades_df["net_pnl"], bins=30, color=PLOT_SECONDARY,
                     alpha=0.7, edgecolor="none")
     axes[0, 0].axvline(0, color=PLOT_PRIMARY, ls="--")
     axes[0, 0].set_title("Trade PnL Distribution")
     axes[0, 0].set_xlabel("Net PnL ($)")
 
-    # PnL by direction
     for direction, color, label in [(-1, PLOT_POSITIVE, "Short Vol"), (1, PLOT_PRIMARY, "Long Vol")]:
         sub = trades_df[trades_df["direction"] == direction]
         if len(sub) > 0:
@@ -308,7 +276,6 @@ def plot_trade_analysis(trades_df):
     axes[0, 1].set_title("PnL by Direction")
     axes[0, 1].axvline(0, color=PLOT_NEUTRAL, ls="--")
 
-    # IV vs RV spread at entry
     axes[1, 0].scatter(trades_df["iv_rv_spread"], trades_df["net_pnl"],
                        alpha=0.5, s=15, c=trades_df["direction"],
                        cmap="RdYlGn")
@@ -318,7 +285,6 @@ def plot_trade_analysis(trades_df):
     axes[1, 0].set_ylabel("Net PnL ($)")
     axes[1, 0].set_title("Entry Spread vs Trade PnL")
 
-    # Cumulative PnL over trades
     cum_pnl = trades_df["net_pnl"].cumsum()
     axes[1, 1].plot(range(len(cum_pnl)), cum_pnl, color=PLOT_COLORS["800"], lw=1.2)
     axes[1, 1].fill_between(range(len(cum_pnl)), 0, cum_pnl, alpha=0.1, color=PLOT_PRIMARY)
@@ -359,10 +325,6 @@ def plot_monthly_returns(pnl_df):
     fig.tight_layout()
     return _save(fig, "09_monthly_returns")
 
-
-# ════════════════════════════════════════════════════════════
-# D.  ROBUSTNESS & SENSITIVITY
-# ════════════════════════════════════════════════════════════
 
 def plot_robustness_subperiods(subperiod_df):
     """Bar chart of Sharpe ratio by sub-period."""
@@ -411,10 +373,6 @@ def plot_parameter_sensitivity(param_df):
     return _save(fig, "11_parameter_sensitivity")
 
 
-# ════════════════════════════════════════════════════════════
-# E.  SUMMARY DASHBOARD
-# ════════════════════════════════════════════════════════════
-
 def plot_summary_dashboard(spx_df, feature_df, signal_df, pnl_df, report):
     """
     Single-page 6-panel summary dashboard.
@@ -422,13 +380,11 @@ def plot_summary_dashboard(spx_df, feature_df, signal_df, pnl_df, report):
     fig = plt.figure(figsize=(20, 14))
     gs = fig.add_gridspec(3, 3, hspace=0.35, wspace=0.3)
 
-    # Panel 1: SPX price
     ax1 = fig.add_subplot(gs[0, 0])
     ax1.plot(spx_df["date"], spx_df["spx_close"], lw=0.7, color=PLOT_SECONDARY)
     ax1.set_title("SPX Price", fontsize=11, fontweight="bold")
     ax1.tick_params(labelsize=8)
 
-    # Panel 2: IV vs RV
     ax2 = fig.add_subplot(gs[0, 1])
     df2 = feature_df.dropna(subset=["atm_iv_at_expiry", "rvol_monthly"])
     if len(df2) > 0:
@@ -438,7 +394,6 @@ def plot_summary_dashboard(spx_df, feature_df, signal_df, pnl_df, report):
     ax2.set_title("IV vs RV", fontsize=11, fontweight="bold")
     ax2.tick_params(labelsize=8)
 
-    # Panel 3: VRP signal
     ax3 = fig.add_subplot(gs[0, 2])
     ax3.plot(signal_df["date"], signal_df["vrp_zscore"], lw=0.7, color=PLOT_COLORS["800"])
     ax3.axhline(1, color=PLOT_PRIMARY, ls="--", lw=0.5)
@@ -446,7 +401,6 @@ def plot_summary_dashboard(spx_df, feature_df, signal_df, pnl_df, report):
     ax3.set_title("VRP Z-Score", fontsize=11, fontweight="bold")
     ax3.tick_params(labelsize=8)
 
-    # Panel 4: Cumulative PnL
     ax4 = fig.add_subplot(gs[1, :2])
     if not pnl_df.empty:
         ax4.plot(pnl_df["date"], pnl_df["cumulative_pnl"], lw=1.0, color=PLOT_COLORS["800"])
@@ -481,7 +435,8 @@ def plot_summary_dashboard(spx_df, feature_df, signal_df, pnl_df, report):
     # Panel 6: Drawdown
     ax6 = fig.add_subplot(gs[2, :])
     if not pnl_df.empty:
-        cum_ret = (1 + pnl_df["daily_return"]).cumprod()
+        r = pnl_df["daily_return"].fillna(0)
+        cum_ret = (1 + r).cumprod()
         peak = cum_ret.cummax()
         dd = (cum_ret - peak) / peak
         ax6.fill_between(pnl_df["date"], dd, 0, color=PLOT_ACCENT, alpha=0.4)

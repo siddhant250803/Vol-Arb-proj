@@ -1,4 +1,4 @@
-This is pdfTeX, Version 3.141592653-2.6-1.40.27 (TeX Live 2025) (preloaded format=pdflatex 2025.3.8)  7 MAR 2026 21:56
+This is pdfTeX, Version 3.141592653-2.6-1.40.27 (TeX Live 2025) (preloaded format=pdflatex 2025.3.8)  12 MAR 2026 22:11
 entering extended mode
  restricted \write18 enabled.
  %&-line parsing enabled.
@@ -580,14 +580,14 @@ Package fancyhdr Warning: \headheight is too small (12.0pt):
 File: ../output/figures/07_cumulative_pnl.png Graphic file (type png)
 <use ../output/figures/07_cumulative_pnl.png>
 Package pdftex.def Info: ../output/figures/07_cumulative_pnl.png  used on input
- line 310.
+ line 312.
 (pdftex.def)             Requested size: 452.9679pt x 224.42108pt.
-<../output/figures/08_trade_analysis.png, id=228, 1148.1294pt x 731.3724pt>
+<../output/figures/08_trade_analysis.png, id=228, 1147.6476pt x 731.3724pt>
 File: ../output/figures/08_trade_analysis.png Graphic file (type png)
 <use ../output/figures/08_trade_analysis.png>
 Package pdftex.def Info: ../output/figures/08_trade_analysis.png  used on input
- line 317.
-(pdftex.def)             Requested size: 452.9679pt x 288.5374pt.
+ line 319.
+(pdftex.def)             Requested size: 452.9679pt x 288.67131pt.
 
 
 
@@ -603,7 +603,7 @@ Package fancyhdr Warning: \headheight is too small (12.0pt):
 File: ../output/figures/13_strategy_comparison.png Graphic file (type png)
 <use ../output/figures/13_strategy_comparison.png>
 Package pdftex.def Info: ../output/figures/13_strategy_comparison.png  used on 
-input line 350.
+input line 352.
 (pdftex.def)             Requested size: 452.9679pt x 253.75916pt.
 
 
@@ -619,7 +619,7 @@ Package fancyhdr Warning: \headheight is too small (12.0pt):
 File: ../output/figures/14_fomc_analysis.png Graphic file (type png)
 <use ../output/figures/14_fomc_analysis.png>
 Package pdftex.def Info: ../output/figures/14_fomc_analysis.png  used on input 
-line 378.
+line 380.
 (pdftex.def)             Requested size: 452.9679pt x 333.91185pt.
 
 
@@ -640,12 +640,12 @@ Package fancyhdr Warning: \headheight is too small (12.0pt):
 (fancyhdr)                \addtolength{\topmargin}{-1.59999pt}.
 
 [9 <../output/figures/14_fomc_analysis.png>]
-<../output/figures/15_oos_walkforward.png, id=266, 1162.5834pt x 688.0104pt>
+<../output/figures/15_oos_walkforward.png, id=264, 1167.8832pt x 688.0104pt>
 File: ../output/figures/15_oos_walkforward.png Graphic file (type png)
 <use ../output/figures/15_oos_walkforward.png>
 Package pdftex.def Info: ../output/figures/15_oos_walkforward.png  used on inpu
-t line 418.
-(pdftex.def)             Requested size: 452.9679pt x 268.06052pt.
+t line 420.
+(pdftex.def)             Requested size: 452.9679pt x 266.84273pt.
 
 
 
@@ -656,11 +656,11 @@ Package fancyhdr Warning: \headheight is too small (12.0pt):
 (fancyhdr)                \addtolength{\topmargin}{-1.59999pt}.
 
 [10 <../output/figures/15_oos_walkforward.png>]
-<../output/figures/16_stress_periods.png, id=276, 1727.253pt x 444.7014pt>
+<../output/figures/16_stress_periods.png, id=274, 1727.253pt x 444.7014pt>
 File: ../output/figures/16_stress_periods.png Graphic file (type png)
 <use ../output/figures/16_stress_periods.png>
 Package pdftex.def Info: ../output/figures/16_stress_periods.png  used on input
- line 471.
+ line 473.
 (pdftex.def)             Requested size: 452.9679pt x 116.61711pt.
 
 
@@ -672,24 +672,18 @@ Package fancyhdr Warning: \headheight is too small (12.0pt):
 (fancyhdr)                \addtolength{\topmargin}{-1.59999pt}.
 
 [11 <../output/figures/16_stress_periods.png>]
-<../output/figures/17_regime_analysis.png, id=285, 1438.173pt x 371.9496pt>
+<../output/figures/17_regime_analysis.png, id=283, 1438.173pt x 371.9496pt>
 File: ../output/figures/17_regime_analysis.png Graphic file (type png)
 <use ../output/figures/17_regime_analysis.png>
 Package pdftex.def Info: ../output/figures/17_regime_analysis.png  used on inpu
-t line 501.
+t line 503.
 (pdftex.def)             Requested size: 452.9679pt x 117.1477pt.
-<../output/figures/18_param_sensitivity.png, id=287, 1436.2458pt x 445.665pt>
+<../output/figures/18_param_sensitivity.png, id=285, 1436.2458pt x 445.665pt>
 File: ../output/figures/18_param_sensitivity.png Graphic file (type png)
 <use ../output/figures/18_param_sensitivity.png>
 Package pdftex.def Info: ../output/figures/18_param_sensitivity.png  used on in
-put line 522.
+put line 524.
 (pdftex.def)             Requested size: 452.9679pt x 140.55522pt.
-<../output/figures/19_bootstrap_sharpe.png, id=288, 616.2222pt x 389.2944pt>
-File: ../output/figures/19_bootstrap_sharpe.png Graphic file (type png)
-<use ../output/figures/19_bootstrap_sharpe.png>
-Package pdftex.def Info: ../output/figures/19_bootstrap_sharpe.png  used on inp
-ut line 539.
-(pdftex.def)             Requested size: 385.02547pt x 243.2371pt.
 
 
 
@@ -701,11 +695,17 @@ Package fancyhdr Warning: \headheight is too small (12.0pt):
 
 [12 <../output/figures/17_regime_analysis.png> <../output/figures/18_param_sens
 itivity.png>]
-<../output/figures/20_yearly_breakdown.png, id=298, 1293.633pt x 733.2996pt>
+<../output/figures/19_bootstrap_sharpe.png, id=294, 610.9224pt x 389.2944pt>
+File: ../output/figures/19_bootstrap_sharpe.png Graphic file (type png)
+<use ../output/figures/19_bootstrap_sharpe.png>
+Package pdftex.def Info: ../output/figures/19_bootstrap_sharpe.png  used on inp
+ut line 542.
+(pdftex.def)             Requested size: 385.02547pt x 245.3518pt.
+<../output/figures/20_yearly_breakdown.png, id=296, 1293.633pt x 733.2996pt>
 File: ../output/figures/20_yearly_breakdown.png Graphic file (type png)
 <use ../output/figures/20_yearly_breakdown.png>
 Package pdftex.def Info: ../output/figures/20_yearly_breakdown.png  used on inp
-ut line 552.
+ut line 555.
 (pdftex.def)             Requested size: 452.9679pt x 256.7594pt.
 
 
@@ -716,11 +716,10 @@ Package fancyhdr Warning: \headheight is too small (12.0pt):
 (fancyhdr)                You might also make \topmargin smaller:
 (fancyhdr)                \addtolength{\topmargin}{-1.59999pt}.
 
-[13 <../output/figures/19_bootstrap_sharpe.png> <../output/figures/20_yearly_br
-eakdown.png>]
-Overfull \hbox (0.58437pt too wide) in paragraph at lines 584--585
+[13 <../output/figures/19_bootstrap_sharpe.png>]
+Overfull \hbox (2.84532pt too wide) in paragraph at lines 587--588
 [] []\OT1/cmr/bx/n/10.95 Volatil-i-ty-Regime De-pen-dency.[] \OT1/cmr/m/n/10.95
- Best per-for-mance in low-vol regimes (Sharpe 2.24); weaker
+ Prof-itable across all regimes. Per-for-mance varies by regime
  []
 
 
@@ -732,7 +731,7 @@ Package fancyhdr Warning: \headheight is too small (12.0pt):
 (fancyhdr)                You might also make \topmargin smaller:
 (fancyhdr)                \addtolength{\topmargin}{-1.59999pt}.
 
-[14]
+[14 <../output/figures/20_yearly_breakdown.png>]
 
 
 Package fancyhdr Warning: \headheight is too small (12.0pt): 
@@ -742,19 +741,19 @@ Package fancyhdr Warning: \headheight is too small (12.0pt):
 (fancyhdr)                \addtolength{\topmargin}{-1.59999pt}.
 
 [15]
-Underfull \hbox (badness 2772) in paragraph at lines 682--686
+Underfull \hbox (badness 2772) in paragraph at lines 685--689
 []\OT1/cmr/m/n/10.95 Augustin, P., Cheng, I.-H., and Van den Bergen, L. (2021).
   Vol-maged-don and
  []
 
 
-Underfull \hbox (badness 6348) in paragraph at lines 682--686
+Underfull \hbox (badness 6348) in paragraph at lines 685--689
 \OT1/cmr/m/n/10.95 the Fail-ure of Short Volatil-ity Prod-ucts.  \OT1/cmr/m/it/
 10.95 Fi-nan-cial An-a-lysts Jour-nal\OT1/cmr/m/n/10.95 , 77(3).
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 682--686
+Underfull \hbox (badness 10000) in paragraph at lines 685--689
 [][]$\OT1/cmtt/m/n/10.95 https : / / rpc . cfainstitute . org / research / fina
 ncial-[]analysts-[]journal / 2021 /
  []
@@ -769,23 +768,23 @@ Package fancyhdr Warning: \headheight is too small (12.0pt):
 (fancyhdr)                \addtolength{\topmargin}{-1.59999pt}.
 
 [16]
-<../output/figures/01_spx_price_returns.png, id=336, 1006.4802pt x 497.2176pt>
+<../output/figures/01_spx_price_returns.png, id=334, 1006.4802pt x 497.2176pt>
 File: ../output/figures/01_spx_price_returns.png Graphic file (type png)
 <use ../output/figures/01_spx_price_returns.png>
 Package pdftex.def Info: ../output/figures/01_spx_price_returns.png  used on in
-put line 699.
+put line 702.
 (pdftex.def)             Requested size: 452.9679pt x 223.76862pt.
-<../output/figures/03_iv_vs_rv.png, id=337, 1003.1076pt x 498.1812pt>
+<../output/figures/03_iv_vs_rv.png, id=335, 1003.5894pt x 498.1812pt>
 File: ../output/figures/03_iv_vs_rv.png Graphic file (type png)
 <use ../output/figures/03_iv_vs_rv.png>
 Package pdftex.def Info: ../output/figures/03_iv_vs_rv.png  used on input line 
-705.
-(pdftex.def)             Requested size: 452.9679pt x 224.96243pt.
-<../output/figures/04_rv_forecasts.png, id=338, 1003.1076pt x 498.1812pt>
+708.
+(pdftex.def)             Requested size: 452.9679pt x 224.856pt.
+<../output/figures/04_rv_forecasts.png, id=336, 1003.1076pt x 498.1812pt>
 File: ../output/figures/04_rv_forecasts.png Graphic file (type png)
 <use ../output/figures/04_rv_forecasts.png>
 Package pdftex.def Info: ../output/figures/04_rv_forecasts.png  used on input l
-ine 711.
+ine 714.
 (pdftex.def)             Requested size: 452.9679pt x 224.96243pt.
 
 
@@ -798,17 +797,17 @@ Package fancyhdr Warning: \headheight is too small (12.0pt):
 
 [17 <../output/figures/01_spx_price_returns.png> <../output/figures/03_iv_vs_rv
 .png>]
-<../output/figures/05_vrp_signal.png, id=347, 1003.5894pt x 714.5094pt>
+<../output/figures/05_vrp_signal.png, id=345, 1003.5894pt x 714.9912pt>
 File: ../output/figures/05_vrp_signal.png Graphic file (type png)
 <use ../output/figures/05_vrp_signal.png>
 Package pdftex.def Info: ../output/figures/05_vrp_signal.png  used on input lin
-e 717.
-(pdftex.def)             Requested size: 452.9679pt x 322.49658pt.
-<../output/figures/06_surface_signals.png, id=348, 1003.5894pt x 569.9694pt>
+e 720.
+(pdftex.def)             Requested size: 452.9679pt x 322.71405pt.
+<../output/figures/06_surface_signals.png, id=346, 1003.5894pt x 569.9694pt>
 File: ../output/figures/06_surface_signals.png Graphic file (type png)
 <use ../output/figures/06_surface_signals.png>
 Package pdftex.def Info: ../output/figures/06_surface_signals.png  used on inpu
-t line 723.
+t line 726.
 (pdftex.def)             Requested size: 452.9679pt x 257.25789pt.
 
 
@@ -821,17 +820,17 @@ Package fancyhdr Warning: \headheight is too small (12.0pt):
 
 [18 <../output/figures/04_rv_forecasts.png> <../output/figures/05_vrp_signal.pn
 g>]
-<../output/figures/09_monthly_returns.png, id=357, 901.9296pt x 461.0826pt>
+<../output/figures/09_monthly_returns.png, id=355, 907.2294pt x 461.0826pt>
 File: ../output/figures/09_monthly_returns.png Graphic file (type png)
 <use ../output/figures/09_monthly_returns.png>
 Package pdftex.def Info: ../output/figures/09_monthly_returns.png  used on inpu
-t line 729.
-(pdftex.def)             Requested size: 452.9679pt x 231.56792pt.
-<../output/figures/12_summary_dashboard.png, id=358, 1155.8382pt x 935.6556pt>
+t line 732.
+(pdftex.def)             Requested size: 452.9679pt x 230.21005pt.
+<../output/figures/12_summary_dashboard.png, id=356, 1155.8382pt x 935.6556pt>
 File: ../output/figures/12_summary_dashboard.png Graphic file (type png)
 <use ../output/figures/12_summary_dashboard.png>
 Package pdftex.def Info: ../output/figures/12_summary_dashboard.png  used on in
-put line 735.
+put line 738.
 (pdftex.def)             Requested size: 452.9679pt x 366.67456pt.
 
 
@@ -863,11 +862,11 @@ Package rerunfilecheck Info: File `report.out' has not changed.
 Here is how much of TeX's memory you used:
  14003 strings out of 473190
  223520 string characters out of 5715801
- 639097 words of memory out of 5000000
+ 639092 words of memory out of 5000000
  36981 multiletter control sequences out of 15000+600000
  567711 words of font info for 69 fonts, out of 8000000 for 9000
  1141 hyphenation exceptions out of 8191
- 75i,12n,79p,1195b,571s stack positions out of 10000i,1000n,20000p,200000b,200000s
+ 75i,12n,79p,1195b,548s stack positions out of 10000i,1000n,20000p,200000b,200000s
 </usr/local/texlive/2025/texmf-dist/fonts/type1/public/amsfonts/cm/cmbx10.pfb
 ></usr/local/texlive/2025/texmf-dist/fonts/type1/public/amsfonts/cm/cmbx12.pfb>
 </usr/local/texlive/2025/texmf-dist/fonts/type1/public/amsfonts/cm/cmex10.pfb><
@@ -880,10 +879,10 @@ cal/texlive/2025/texmf-dist/fonts/type1/public/amsfonts/cm/cmr8.pfb></usr/local
 texlive/2025/texmf-dist/fonts/type1/public/amsfonts/cm/cmti10.pfb></usr/local/t
 exlive/2025/texmf-dist/fonts/type1/public/amsfonts/cm/cmtt10.pfb></usr/local/te
 xlive/2025/texmf-dist/fonts/type1/public/cm-super/sfrm1095.pfb>
-Output written on report.pdf (20 pages, 3550401 bytes).
+Output written on report.pdf (20 pages, 3278872 bytes).
 PDF statistics:
- 453 PDF objects out of 1000 (max. 8388607)
- 369 compressed objects within 4 object streams
+ 451 PDF objects out of 1000 (max. 8388607)
+ 367 compressed objects within 4 object streams
  111 named destinations out of 1000 (max. 500000)
  342 words of extra memory for PDF output out of 10000 (max. 10000000)
 

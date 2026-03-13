@@ -1,18 +1,6 @@
-# ============================================================
-# rv_models.py — Realized Volatility Forecasting Models
-# ============================================================
 """
-Implements three families of RV forecasting models:
-
-    1. HAR-RV   (Heterogeneous Autoregressive — Corsi 2009)
-    2. GARCH    (Bollerslev 1986) / EGARCH (Nelson 1991) / GJR-GARCH
-    3. Realized-GARCH  (Hansen, Huang & Shek 2012)
-
-Each model exposes:
-    - fit(train_data)   → fitted model object
-    - forecast(model, steps)  → h-step-ahead volatility forecast
-    - rolling_forecast(data, train_window, horizon)
-        → out-of-sample forecasts aligned to the feature table
+RV forecasting models: HAR-RV, GARCH, GJR-GARCH.
+Rolling out-of-sample forecasts aligned to the feature table.
 """
 
 import warnings
@@ -34,10 +22,6 @@ from src.config import (
 warnings.filterwarnings("ignore", category=FutureWarning)
 warnings.filterwarnings("ignore", category=RuntimeWarning)
 
-
-# ════════════════════════════════════════════════════════════
-# 1.  HAR-RV  (Heterogeneous Autoregressive Model)
-# ════════════════════════════════════════════════════════════
 
 class HARRV:
     """
@@ -96,7 +80,6 @@ class HARRV:
         self
         """
         features = self._build_features(rv_series)
-        # Align target
         common = features.index.intersection(fwd_rv_series.index)
         X = features.loc[common, [f"rv_lag_{l}" for l in self.lags]]
         y = fwd_rv_series.loc[common]
@@ -164,7 +147,6 @@ def har_rv_rolling_forecast(rv_series, fwd_rv_series, train_window=504):
 
         try:
             model.fit(train_rv, train_fwd)
-            # Predict at time t using features available at t
             last_rv = rv_aligned.iloc[: t + 1]
             pred = model.predict(last_rv)
             if len(pred) > 0:
@@ -177,10 +159,6 @@ def har_rv_rolling_forecast(rv_series, fwd_rv_series, train_window=504):
     return out
 
 
-# ════════════════════════════════════════════════════════════
-# 2.  GARCH Family Models
-# ════════════════════════════════════════════════════════════
-
 def fit_garch(returns, model_type="GARCH", p=None, q=None):
     """
     Fit a GARCH-family model to a return series.
@@ -190,7 +168,7 @@ def fit_garch(returns, model_type="GARCH", p=None, q=None):
     returns : pd.Series
         Daily log-returns (not percentage, will be scaled internally).
     model_type : str
-        One of "GARCH", "EGARCH", "GJR" (GJR-GARCH).
+        One of "GARCH", "GJR" (GJR-GARCH).
     p : int
         Lag order for the variance equation.
     q : int
@@ -204,29 +182,19 @@ def fit_garch(returns, model_type="GARCH", p=None, q=None):
     p = p or GARCH_P
     q = q or GARCH_Q
 
-    # arch package expects returns scaled to percentage
     scaled = returns * 100.0
 
     vol_model = model_type if model_type != "GJR" else "GARCH"
     o = 1 if model_type == "GJR" else 0
 
-    if model_type == "EGARCH":
-        am = arch_model(
-            scaled.dropna(),
-            mean="Constant",
-            vol="EGARCH",
-            p=p,
-            q=q,
-        )
-    else:
-        am = arch_model(
-            scaled.dropna(),
-            mean="Constant",
-            vol=vol_model,
-            p=p,
-            o=o,
-            q=q,
-        )
+    am = arch_model(
+        scaled.dropna(),
+        mean="Constant",
+        vol=vol_model,
+        p=p,
+        o=o,
+        q=q,
+    )
 
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
@@ -251,7 +219,7 @@ def garch_rolling_forecast(
     returns : pd.Series
         Daily log-returns indexed by date.
     model_type : str
-        "GARCH", "EGARCH", or "GJR".
+        "GARCH" or "GJR" (GJR-GARCH).
     train_window : int
         Minimum training observations.
     forecast_horizon : int
@@ -274,16 +242,12 @@ def garch_rolling_forecast(
             result = fit_garch(train, model_type=model_type)
             fcast = result.forecast(horizon=forecast_horizon)
 
-            # Average variance over the forecast horizon, annualise
-            # fcast.variance gives variance in (pct return)² units
             avg_var = fcast.variance.iloc[-1].mean()
-            # Convert from percentage² to decimal² and annualise
             ann_var = (avg_var / 10000.0) * ANNUALISATION_FACTOR
 
             date = returns.index[t]
             forecasts[date] = ann_var
 
-            # Fill in skipped dates with same forecast
             for j in range(1, min(refit_interval, n - t)):
                 if t + j < n:
                     forecasts[returns.index[t + j]] = ann_var
@@ -295,13 +259,9 @@ def garch_rolling_forecast(
     return out
 
 
-# ════════════════════════════════════════════════════════════
-# 3.  Convenience: Run All Models
-# ════════════════════════════════════════════════════════════
-
 def run_all_rv_models(feature_df, train_window=504):
     """
-    Run HAR-RV, GARCH, EGARCH, and GJR-GARCH on the feature table
+    Run HAR-RV, GARCH, and GJR-GARCH on the feature table
     and return a DataFrame of forecasts.
 
     Parameters
@@ -315,48 +275,33 @@ def run_all_rv_models(feature_df, train_window=504):
     Returns
     -------
     pd.DataFrame
-        Columns: date, har_rv_forecast, garch_forecast,
-                 egarch_forecast, gjr_forecast
+        Columns: date, har_rv_forecast, garch_forecast, gjr_forecast
     """
-    print("\n" + "=" * 60)
-    print("  RUNNING RV FORECAST MODELS")
-    print("=" * 60)
-
     df = feature_df.set_index("date").sort_index()
 
-    # ── HAR-RV ─────────────────────────────────────────────
     har_fcast = har_rv_rolling_forecast(
         df["rv_monthly"],
         df["fwd_rv"].dropna(),
         train_window=train_window,
     )
 
-    # ── GARCH Family ───────────────────────────────────────
     garch_fcast = garch_rolling_forecast(
         df["log_return"], "GARCH", train_window
-    )
-    egarch_fcast = garch_rolling_forecast(
-        df["log_return"], "EGARCH", train_window
     )
     gjr_fcast = garch_rolling_forecast(
         df["log_return"], "GJR", train_window
     )
 
-    # ── Merge ──────────────────────────────────────────────
     result = pd.DataFrame(index=df.index)
     result["har_rv_forecast"] = har_fcast
     result["garch_forecast"] = garch_fcast
-    result["egarch_forecast"] = egarch_fcast
     result["gjr_forecast"] = gjr_fcast
 
-    # Composite forecast (equal-weight average, skip missing models)
     fcast_cols = [
         "har_rv_forecast",
         "garch_forecast",
-        "egarch_forecast",
         "gjr_forecast",
     ]
-    # Only average over models that have at least some data
     active_cols = [c for c in fcast_cols if result[c].notna().sum() > 0]
     if active_cols:
         result["composite_rv_forecast"] = result[active_cols].mean(axis=1)

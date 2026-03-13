@@ -1,26 +1,8 @@
 #!/usr/bin/env python3
-# ============================================================
-# run_pipeline.py — End-to-End Execution of the Vol-Arb Strategy
-# ============================================================
 """
-Master script that runs every stage of the IV vs Forecast RV
-volatility arbitrage pipeline:
-
-    Stage 1 — Data Loading & Cleaning
-    Stage 2 — Feature Engineering  (IV measures, RV, events)
-    Stage 3 — RV Forecasting       (HAR-RV, GARCH family)
-    Stage 4 — Signal Construction   (VRP, skew, term-structure)
-    Stage 5 — Backtesting           (delta-hedged straddles; hold only to option expiry)
-    Stage 6 — Performance Analysis  (metrics, robustness)
-    Stage 7 — Visualisation         (all plots + dashboard)
-    Stage 8 — Export Results        (CSV artifacts)
-
-Usage:
-    python run_pipeline.py              # full run (figures 01–12 only)
-    python run_pipeline.py --quick      # fast dev run (fewer rows)
-    python run_pipeline.py --all-figures  # also run comparison + robustness → figures 13–20
-
-All backtests hold only until option expiry (Friday weeklies); no position held past expiry.
+End-to-end volatility arbitrage pipeline: data → features → RV forecasts →
+signals → backtest → performance → visualisation → export.
+Usage: run_pipeline.py [--quick] [--all-figures]
 """
 
 import sys
@@ -33,9 +15,8 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 import matplotlib
-matplotlib.use("Agg")  # non-interactive backend for saving plots
+matplotlib.use("Agg")
 
-# ── Add project root to path ──────────────────────────────
 PROJECT_ROOT = Path(__file__).resolve().parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
@@ -57,10 +38,6 @@ from src import visualization as viz
 warnings.filterwarnings("ignore", category=FutureWarning)
 warnings.filterwarnings("ignore", category=RuntimeWarning)
 
-
-# ════════════════════════════════════════════════════════════
-#  PIPELINE STAGES
-# ════════════════════════════════════════════════════════════
 
 def stage1_load_data(quick=False):
     """
@@ -110,8 +87,6 @@ def stage3_rv_forecasts(features):
     print("█" * 60 + "\n")
 
     forecasts = run_all_rv_models(features, train_window=252)
-
-    # Merge forecasts back into feature table
     augmented = features.merge(forecasts, on="date", how="left")
     print(f"\n  Augmented feature table: {len(augmented)} rows, "
           f"{augmented.shape[1]} columns")
@@ -128,7 +103,10 @@ def stage4_signals(augmented, data):
     print("  STAGE 4 — SIGNAL CONSTRUCTION")
     print("█" * 60 + "\n")
 
-    signals = build_signal_table(augmented, data["options"], data["spx"])
+    signals = build_signal_table(
+        augmented, data["options"], data["spx"],
+        options_wide_df=data.get("options_wide"),
+    )
     return signals
 
 
@@ -170,11 +148,10 @@ def stage6_performance(trades_df, pnl_df, signals, data):
         print("\n  Sub-period Sharpe ratios:")
         print(subperiod_df[["period", "start", "end", "sharpe", "ann_return"]].to_string())
 
-        # Parameter sensitivity (hold days ≤ expiry only; backtest caps at exdate)
         print("\n  Running parameter sensitivity ...")
         param_df = robustness_by_parameter(
             signals, data["spx"], run_backtest,
-            hold_days_range=[1, 2, 3, 4, 5],  # weeklies: never hold past Friday expiry
+            hold_days_range=[1, 2, 3, 4, 5],
             cost_range=[0, 5, 10],
         )
         if not param_df.empty:
@@ -196,29 +173,24 @@ def stage7_visualise(data, features, signals, pnl_df, trades_df,
 
     FIGURES_DIR.mkdir(parents=True, exist_ok=True)
 
-    # A. Data exploration
     viz.plot_spx_price_and_returns(data["spx"])
     viz.plot_options_summary(data["options"])
 
-    # B. Features & signals
     viz.plot_iv_vs_rv(features)
     viz.plot_rv_forecasts(features)
     viz.plot_vrp_signal(signals)
     viz.plot_skew_and_term_signals(signals)
 
-    # C. Backtest performance
     if not pnl_df.empty:
         viz.plot_cumulative_pnl(pnl_df)
         viz.plot_trade_analysis(trades_df)
         viz.plot_monthly_returns(pnl_df)
 
-    # D. Robustness
     if not subperiod_df.empty:
         viz.plot_robustness_subperiods(subperiod_df)
     if not param_df.empty:
         viz.plot_parameter_sensitivity(param_df)
 
-    # E. Dashboard
     if report:
         viz.plot_summary_dashboard(data["spx"], features, signals, pnl_df, report)
 
@@ -241,7 +213,6 @@ def stage8_export(data, features, signals, trades_df, pnl_df, report):
     features.to_csv(DATA_OUTPUT_DIR / "feature_table.csv", index=False)
     print(f"  Saved feature_table.csv ({len(features)} rows)")
 
-    # Signals
     signals.to_csv(DATA_OUTPUT_DIR / "signal_table.csv", index=False)
     print(f"  Saved signal_table.csv ({len(signals)} rows)")
 
@@ -250,12 +221,10 @@ def stage8_export(data, features, signals, trades_df, pnl_df, report):
         trades_df.to_csv(DATA_OUTPUT_DIR / "trades.csv", index=False)
         print(f"  Saved trades.csv ({len(trades_df)} trades)")
 
-    # Daily PnL = sum(PnL) per calendar day
     if not pnl_df.empty:
         pnl_df.to_csv(DATA_OUTPUT_DIR / "daily_pnl.csv", index=False)
         print(f"  Saved daily_pnl.csv ({len(pnl_df)} days)")
 
-    # Performance report (as text)
     if report:
         with open(REPORTS_DIR / "performance_report.txt", "w") as f:
             f.write("=" * 60 + "\n")
@@ -313,10 +282,6 @@ def stage8_export(data, features, signals, trades_df, pnl_df, report):
     print(f"\n  All outputs in: {OUTPUT_DIR}")
 
 
-# ════════════════════════════════════════════════════════════
-#  MAIN ENTRY POINT
-# ════════════════════════════════════════════════════════════
-
 def main():
     parser = argparse.ArgumentParser(
         description="Run the IV vs Forecast RV volatility arbitrage pipeline."
@@ -343,7 +308,6 @@ def main():
         print("  📊 ALL FIGURES — will run comparison + robustness + logistic quantile sweep after pipeline")
     print()
 
-    # ── Run all stages ─────────────────────────────────────
     data = stage1_load_data(quick=args.quick)
     features = stage2_features(data)
     augmented = stage3_rv_forecasts(features)
@@ -356,7 +320,6 @@ def main():
                      report, subperiod_df, param_df)
     stage8_export(data, augmented, signals, trades_df, pnl_df, report)
 
-    # ── Optional: generate figures 13–20 ───────────────────
     if args.all_figures:
         print("\n" + "█" * 60)
         print("  GENERATING FIGURES 13–20 + LOGISTIC QUANTILE SWEEP")
@@ -376,7 +339,6 @@ def main():
             else:
                 print(f"  [!] {script} not found, skipping {name}")
 
-    # ── Done ───────────────────────────────────────────────
     elapsed = time.time() - start_time
     print("\n" + "=" * 60)
     print(f"  PIPELINE COMPLETE — {elapsed:.1f}s elapsed")

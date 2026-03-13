@@ -19,7 +19,6 @@ from logistic import run_logistic_expected_vol_oos
 
 def main() -> None:
     feature_candidates = [
-        DATA_OUTPUT_DIR / "feature_table_stage1_stage2_notebook.csv",
         DATA_OUTPUT_DIR / "feature_table.csv",
     ]
     feature_path = next((path for path in feature_candidates if path.exists()), None)

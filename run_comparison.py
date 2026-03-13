@@ -1,21 +1,7 @@
 #!/usr/bin/env python3
-# ============================================================
-# run_comparison.py — Head-to-Head Strategy Comparison
-# ============================================================
 """
-Compare the two signal families:
-
-    Strategy 1 — VRP (Core):  ATM IV − forecast RV
-    Strategy 2 — Variance Swap:  Model-free IV (MFIV) − forecast RV
-
-All strategies hold only until option expiry (Friday weeklies); no holding past expiry.
-
-Also analyses FOMC-window vs non-FOMC performance for each.
-
-Produces:
-    output/figures/13_strategy_comparison.png
-    output/figures/14_fomc_analysis.png
-    output/reports/strategy_comparison.txt
+Strategy comparison: VRP (ATM IV − RV) vs Variance Swap (MFIV − RV).
+FOMC-window analysis. Outputs figures 13–14 and strategy_comparison.txt.
 """
 
 import sys
@@ -45,11 +31,11 @@ from src.rv_models import run_all_rv_models
 from src.signals import compute_vrp_signal
 from src.backtest import run_backtest, trades_to_dataframe
 from src.performance import (
-    sharpe_ratio, sortino_ratio, annualised_return,
-    annualised_volatility, compute_drawdown, return_statistics,
-    benchmark_returns_from_spx, benchmark_comparison,
-    probabilistic_sharpe_ratio, trade_statistics,
-    returns_on_full_calendar,
+    compute_drawdown, return_statistics, probabilistic_sharpe_ratio,
+    benchmark_returns_from_spx, trade_statistics,
+    realized_returns_from_trades,
+    _realized_ann_return, _realized_ann_vol, _realized_sharpe, _realized_sortino,
+    _benchmark_comparison_realized,
 )
 
 warnings.filterwarnings("ignore")
@@ -59,9 +45,12 @@ except OSError:
     plt.style.use("seaborn-v0_8")
 
 
-# ════════════════════════════════════════════════════════════
-#  SIGNAL BUILDERS — one per strategy
-# ════════════════════════════════════════════════════════════
+def _fmt_alpha(a):
+    """Format alpha for display; avoid absurd values from mis-scaled regressions."""
+    if np.isnan(a) or np.isinf(np.abs(a)) or np.abs(a) > 10:
+        return "N/A"
+    return f"{a:.2%}"
+
 
 def _make_vrp_signal(feature_df):
     """Strategy 1: ATM IV − forecast RV."""
@@ -85,28 +74,20 @@ def _make_varswap_signal(feature_df):
     return compute_vrp_signal(df, iv_col="mfiv_vol_at_expiry")
 
 
-# ════════════════════════════════════════════════════════════
-#  PERFORMANCE SUMMARY
-# ════════════════════════════════════════════════════════════
-
 def _summarise(name, trades, pnl_df, spx_df=None):
-    """Compute a summary dict for one strategy (incl. PSR and benchmark when spx_df given)."""
-    if pnl_df.empty or len(pnl_df) < 5:
+    """Compute a summary dict for one strategy (realized returns only)."""
+    trades_df = trades_to_dataframe(trades)
+    if pnl_df.empty or len(trades) < 1:
         return {"strategy": name, "n_trades": 0}
 
-    # Use full calendar (flat days = 0) so Sharpe/ann return are not inflated
-    if spx_df is not None:
-        dr = returns_on_full_calendar(pnl_df, spx_df)
-        dr = dr.dropna()
-    else:
-        dr = pnl_df["daily_return"].dropna()
-    if len(dr) < 2:
+    dr = realized_returns_from_trades(trades_df, spx_df)
+    if dr.empty or dr.dropna().shape[0] < 2:
         return {"strategy": name, "n_trades": len(trades)}
 
-    trades_df = trades_to_dataframe(trades)
     wins = sum(1 for t in trades if t.net_pnl > 0)
     total_pnl = sum(t.net_pnl for t in trades)
-    dd = compute_drawdown(dr)
+    dd = compute_drawdown(dr, sparse_realized=True)
+    dr_exits = dr.dropna()
 
     out = {
         "strategy": name,
@@ -114,16 +95,15 @@ def _summarise(name, trades, pnl_df, spx_df=None):
         "win_rate": wins / max(len(trades), 1),
         "total_pnl": total_pnl,
         "avg_pnl": total_pnl / max(len(trades), 1),
-        "ann_return": annualised_return(dr),
-        "ann_vol": annualised_volatility(dr),
-        "sharpe": sharpe_ratio(dr),
-        "sortino": sortino_ratio(dr),
+        "ann_return": _realized_ann_return(dr),
+        "ann_vol": _realized_ann_vol(dr),
+        "sharpe": _realized_sharpe(dr),
+        "sortino": _realized_sortino(dr),
         "max_dd": dd["max_drawdown"],
-        "skewness": dr.skew(),
-        "kurtosis": dr.kurtosis(),
-        "psr": probabilistic_sharpe_ratio(dr, sr_ref=0.0),
+        "skewness": dr_exits.skew(),
+        "kurtosis": dr_exits.kurtosis(),
+        "psr": probabilistic_sharpe_ratio(dr_exits, sr_ref=0.0),
     }
-    # Trade-level stats (gain per trade, holding period)
     if not trades_df.empty:
         ts = trade_statistics(trades_df)
         out["avg_holding_days"] = ts.get("avg_holding_days", np.nan)
@@ -132,23 +112,17 @@ def _summarise(name, trades, pnl_df, spx_df=None):
         out["avg_holding_days"] = np.nan
         out["trades_per_year"] = np.nan
 
-    # Benchmark comparison when SPX available (use calendar-aligned strategy returns)
-    if spx_df is not None and len(dr) > 10:
-        strat_ret = dr
-        start_date, end_date = strat_ret.index.min(), strat_ret.index.max()
+    if spx_df is not None and len(dr_exits) > 10:
+        start_date, end_date = dr.index.min(), dr.index.max()
         bench_ret = benchmark_returns_from_spx(spx_df, start_date, end_date)
         if len(bench_ret) > 0:
-            bc = benchmark_comparison(strat_ret, bench_ret)
+            bc = _benchmark_comparison_realized(dr, bench_ret)
             out["benchmark_sharpe"] = bc.get("benchmark_sharpe", np.nan)
             out["benchmark_ann_return"] = bc.get("benchmark_ann_return", np.nan)
             out["alpha_ann"] = bc.get("alpha_ann", np.nan)
             out["information_ratio"] = bc.get("information_ratio", np.nan)
     return out
 
-
-# ════════════════════════════════════════════════════════════
-#  FOMC ANALYSIS
-# ════════════════════════════════════════════════════════════
 
 def _fomc_split(signal_df, spx_df, feature_df, strategy_name):
     """
@@ -166,27 +140,10 @@ def _fomc_split(signal_df, spx_df, feature_df, strategy_name):
             results[label] = {"n_trades": 0}
             continue
         trades, pnl_df = run_backtest(sub, spx_df)
-
-        # Reindex to full calendar (flat days = 0) for consistent Sharpe/return
-        if not pnl_df.empty and spx_df is not None:
-            ret_series = returns_on_full_calendar(pnl_df, spx_df)
-            if not ret_series.empty:
-                pnl_df = pd.DataFrame({
-                    "date": ret_series.index,
-                    "daily_return": ret_series.values,
-                })
-                pnl_df["daily_pnl"] = pnl_df["daily_return"] * 1e6  # notional for display
-                pnl_df["cumulative_pnl"] = pnl_df["daily_pnl"].cumsum()
-                pnl_df["cumulative_return"] = (1 + pnl_df["daily_return"]).cumprod() - 1
-
         results[label] = _summarise(f"{strategy_name}_{label}", trades, pnl_df, spx_df=spx_df)
 
     return results
 
-
-# ════════════════════════════════════════════════════════════
-#  PLOTTING
-# ════════════════════════════════════════════════════════════
 
 def _save(fig, name):
     FIGURES_DIR.mkdir(parents=True, exist_ok=True)
@@ -291,7 +248,7 @@ def plot_strategy_comparison(results, pnl_dict, spx_df=None):
             psr = r.get("psr", np.nan)
             alpha = r.get("alpha_ann", np.nan)
             psr_str = f"{psr:.0%}" if not (isinstance(psr, float) and np.isnan(psr)) else "—"
-            alpha_str = f"{alpha:.1%}" if not (isinstance(alpha, float) and np.isnan(alpha)) else "—"
+            alpha_str = "—" if (isinstance(alpha, float) and np.isnan(alpha)) else _fmt_alpha(alpha)
             table_data.append([
                 r["strategy"],
                 f"{r['n_trades']}",
@@ -381,17 +338,12 @@ def plot_fomc_analysis(fomc_results):
     _save(fig, "14_fomc_analysis")
 
 
-# ════════════════════════════════════════════════════════════
-#  MAIN
-# ════════════════════════════════════════════════════════════
-
 def main():
     print("\n" + "=" * 65)
     print("  STRATEGY COMPARISON — VRP vs Variance Swap")
     print("  + FOMC Window Analysis (±7 days)")
     print("=" * 65 + "\n")
 
-    # ── Load data ──────────────────────────────────────────
     print("Loading data ...")
     data = load_all_data()
     print("Building features ...")
@@ -402,7 +354,6 @@ def main():
     forecasts = run_all_rv_models(features, train_window=252)
     augmented = features.merge(forecasts, on="date", how="left")
 
-    # ── Build signals for each strategy ────────────────────
     print("\n" + "─" * 50)
     print("  Building signals for each strategy ...")
     print("─" * 50)
@@ -410,7 +361,6 @@ def main():
     sig_vrp = _make_vrp_signal(augmented)
     sig_varswap = _make_varswap_signal(augmented)
 
-    # ── Backtest each strategy ─────────────────────────────
     print("\n" + "─" * 50)
     print("  Backtesting each strategy ...")
     print("─" * 50)
@@ -431,7 +381,6 @@ def main():
         results.append(_summarise(name, trades, pnl_df, spx_df=data["spx"]))
         pnl_dict[name] = pnl_df
 
-    # ── FOMC analysis ──────────────────────────────────────
     print("\n" + "─" * 50)
     print("  FOMC Window Analysis (±7 days) ...")
     print("─" * 50)
@@ -448,7 +397,6 @@ def main():
             sig_df, data["spx"], augmented, name
         )
 
-    # ── Print report ───────────────────────────────────────
     print("\n" + "=" * 65)
     print("  STRATEGY COMPARISON RESULTS")
     print("=" * 65)
@@ -478,7 +426,7 @@ def main():
                 f"    PSR (SR>0):    {r.get('psr', np.nan):.1%}",
                 f"    Sortino:       {r['sortino']:.2f}",
                 f"    Max Drawdown:  {r['max_dd']:.2%}",
-                f"    Alpha (ann):   {r.get('alpha_ann', np.nan):.2%}",
+                f"    Alpha (ann):   {_fmt_alpha(r.get('alpha_ann', np.nan))}",
                 f"    Skewness:      {r['skewness']:.3f}",
                 f"    Kurtosis:      {r['kurtosis']:.3f}",
             ]
@@ -487,7 +435,6 @@ def main():
                 print(l)
         report_lines.append("")
 
-    # FOMC section
     report_lines.append("")
     report_lines.append("=" * 65)
     report_lines.append("  FOMC Window (±7 days) vs Non-FOMC")
@@ -517,14 +464,12 @@ def main():
                 report_lines.append(msg)
                 print(msg)
 
-    # ── Save report ────────────────────────────────────────
     REPORTS_DIR.mkdir(parents=True, exist_ok=True)
     report_path = REPORTS_DIR / "strategy_comparison.txt"
     with open(report_path, "w") as f:
         f.write("\n".join(report_lines))
     print(f"\n  Report saved → {report_path}")
 
-    # ── Plots ──────────────────────────────────────────────
     print("\n  Generating plots ...")
     plot_strategy_comparison(results, pnl_dict, spx_df=data["spx"])
     if fomc_results:

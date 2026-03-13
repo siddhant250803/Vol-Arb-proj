@@ -1,19 +1,6 @@
-# ============================================================
-# performance.py — Performance Metrics & Robustness Analysis
-# ============================================================
 """
-Computes standard strategy-evaluation metrics using empyrical
-(Quantopian's backtesting library) for Sharpe, Sortino, drawdown,
-Calmar, and related risk/return metrics.
-
-Also includes:
-    - Skewness / kurtosis of returns
-    - Win rate, average trade PnL
-    - Turnover / capacity estimates
-    - Robustness across sub-periods and parameter variations
-
-All functions accept the daily PnL or trade DataFrames produced
-by the backtester.
+Performance metrics (Sharpe, Sortino, drawdown, Calmar), trade stats,
+benchmark comparison, robustness tests.
 """
 
 import numpy as np
@@ -22,10 +9,6 @@ import empyrical as ep
 
 from src.config import TRADING_DAYS_PER_YEAR, NOTIONAL_CAPITAL
 
-
-# ════════════════════════════════════════════════════════════
-# 1.  RETURN-LEVEL METRICS (via empyrical)
-# ════════════════════════════════════════════════════════════
 
 def _to_series(x):
     """Ensure input is a pd.Series for empyrical."""
@@ -84,18 +67,15 @@ def sortino_ratio(daily_returns, risk_free_annual=0.0):
     return float(val)
 
 
-# ════════════════════════════════════════════════════════════
-# 2.  DRAWDOWN METRICS
-# ════════════════════════════════════════════════════════════
-
-def compute_drawdown(daily_returns):
+def compute_drawdown(daily_returns, sparse_realized=False):
     """
     Compute the drawdown series and max drawdown.
-    Uses empyrical for max_drawdown; builds series for plotting.
 
     Parameters
     ----------
     daily_returns : pd.Series
+    sparse_realized : bool
+        If True, treat NaN as no change (0) for equity curve; used for realized returns.
 
     Returns
     -------
@@ -105,16 +85,20 @@ def compute_drawdown(daily_returns):
         max_dd_start    : date/index when the peak before max DD occurred
         max_dd_end      : date/index when max drawdown was reached
     """
-    r = _to_series(daily_returns).dropna()
-    if r.empty:
+    r = _to_series(daily_returns)
+    if sparse_realized:
+        r_equity = r.fillna(0)
+    else:
+        r_equity = r.dropna()
+    if r_equity.empty:
         return {"drawdown_series": pd.Series(), "max_drawdown": 0.0, "max_dd_start": None, "max_dd_end": None}
 
-    cum = (1 + r).cumprod()
+    cum = (1 + r_equity).cumprod()
     peak = cum.cummax()
     dd = np.where(peak > 1e-12, (cum - peak) / peak, 0.0)
-    dd = pd.Series(dd, index=r.index)
+    dd = pd.Series(dd, index=r_equity.index)
 
-    max_dd_val = ep.max_drawdown(r)
+    max_dd_val = ep.max_drawdown(r_equity)
     max_dd = float(max_dd_val) if max_dd_val is not None and not np.isnan(max_dd_val) else dd.min()
     max_dd_end = dd.idxmin() if len(dd) > 0 else None
     max_dd_start = cum.loc[:max_dd_end].idxmax() if max_dd_end is not None else None
@@ -137,10 +121,6 @@ def calmar_ratio(daily_returns):
         return np.inf
     return float(val)
 
-
-# ════════════════════════════════════════════════════════════
-# 3.  DISTRIBUTION METRICS
-# ════════════════════════════════════════════════════════════
 
 def return_statistics(daily_returns):
     """
@@ -257,10 +237,6 @@ def probabilistic_sharpe_ratio(daily_returns, sr_ref=0.0):
     return float(stats.norm.cdf(z))
 
 
-# ════════════════════════════════════════════════════════════
-# 3b. BENCHMARK (BUY-AND-HOLD SPX / SPY PROXY)
-# ════════════════════════════════════════════════════════════
-
 def benchmark_returns_from_spx(spx_df, start_date, end_date):
     """
     Get daily returns for buy-and-hold SPX over [start_date, end_date].
@@ -352,10 +328,6 @@ def benchmark_comparison(strategy_daily_returns, benchmark_daily_returns):
         "information_ratio": ir,
     }
 
-
-# ════════════════════════════════════════════════════════════
-# 4.  TRADE-LEVEL METRICS
-# ════════════════════════════════════════════════════════════
 
 def trade_statistics(trades_df):
     """
@@ -463,21 +435,18 @@ def capacity_estimate(trades_df, notional_per_trade, adv_billions=50.0, pct_adv_
     }
 
 
-# ════════════════════════════════════════════════════════════
-# 5.  FULL PERFORMANCE REPORT
-# ════════════════════════════════════════════════════════════
-
-def returns_on_full_calendar(daily_pnl_df, spx_df=None):
+def realized_returns_from_trades(trades_df, spx_df=None, notional=NOTIONAL_CAPITAL):
     """
-    Reindex strategy daily returns to the full trading-day calendar;
-    fill days with no position with 0. This avoids inflating Sharpe by
-    only counting "active" days when annualising.
+    Build daily return series from trade exits only (full PnL on exit date).
+    Full calendar; non-exit days are NaN (no fill with 0).
     """
-    strat_ret = daily_pnl_df.set_index("date")["daily_return"].dropna()
-    if strat_ret.empty:
-        return strat_ret
-    start_date = strat_ret.index.min()
-    end_date = strat_ret.index.max()
+    if trades_df is None or trades_df.empty or "exit_date" not in trades_df.columns:
+        return pd.Series()
+    exits = trades_df.groupby("exit_date")["net_pnl"].sum()
+    ret = exits / notional
+    ret.index = pd.to_datetime(ret.index)
+    start_date = ret.index.min()
+    end_date = ret.index.max()
     if spx_df is not None and "date" in spx_df.columns:
         calendar = spx_df.loc[
             (spx_df["date"] >= start_date) & (spx_df["date"] <= end_date),
@@ -486,33 +455,126 @@ def returns_on_full_calendar(daily_pnl_df, spx_df=None):
         full_dates = pd.DatetimeIndex(calendar.sort_values().values)
     else:
         full_dates = pd.bdate_range(start_date, end_date)
-    return strat_ret.reindex(full_dates, fill_value=0.0)
+    return ret.reindex(full_dates)
+
+
+def _realized_ann_return(r):
+    """Annualized return for sparse realized series (NaN on non-exit days)."""
+    r_filled = r.fillna(0)
+    total = (1 + r_filled).prod() - 1
+    n_days = len(r)
+    if n_days < 2:
+        return 0.0
+    T_years = n_days / TRADING_DAYS_PER_YEAR
+    if T_years <= 0:
+        return 0.0
+    return float((1 + total) ** (1 / T_years) - 1)
+
+
+def _realized_ann_vol(r):
+    """Annualized volatility for sparse realized series."""
+    r_exits = r.dropna()
+    if len(r_exits) < 2:
+        return 0.0
+    std = r_exits.std()
+    n_exits = len(r_exits)
+    n_days = (r.index.max() - r.index.min()).days
+    T_years = max(n_days / 365.25, 1 / 365.25)
+    periods_per_year = n_exits / T_years
+    return float(std * np.sqrt(periods_per_year))
+
+
+def _realized_sharpe(r, risk_free_annual=0.0):
+    """Sharpe ratio for sparse realized series."""
+    ann_ret = _realized_ann_return(r)
+    ann_vol = _realized_ann_vol(r)
+    if ann_vol <= 0:
+        return 0.0
+    return float((ann_ret - risk_free_annual) / ann_vol)
+
+
+def _realized_sortino(r, risk_free_annual=0.0):
+    """Sortino ratio for sparse realized series (downside vol from exit returns)."""
+    r_exits = r.dropna()
+    if len(r_exits) < 2:
+        return np.inf
+    downside = r_exits[r_exits < 0]
+    if len(downside) < 2:
+        return np.inf
+    ann_ret = _realized_ann_return(r)
+    n_exits = len(r_exits)
+    n_days = (r.index.max() - r.index.min()).days
+    T_years = max(n_days / 365.25, 1 / 365.25)
+    periods_per_year = n_exits / T_years
+    downside_vol = downside.std() * np.sqrt(periods_per_year)
+    if downside_vol <= 0:
+        return np.inf
+    return float((ann_ret - risk_free_annual) / downside_vol)
+
+
+def _benchmark_comparison_realized(s_ret, b_ret):
+    """
+    Benchmark comparison for sparse realized strategy returns.
+    Aligns to full calendar (strategy NaN -> 0) for beta/alpha so we compare daily to daily.
+    Jensen alpha: alpha_ann = ann_s - beta * ann_b (rf=0).
+    """
+    b_ret = b_ret.dropna()
+    if b_ret.empty or len(b_ret) < 10:
+        return {}
+    s_full = s_ret.reindex(b_ret.index).fillna(0)
+    common = s_full.index.intersection(b_ret.index)
+    if len(common) < 10:
+        return {}
+    s_full = s_full.loc[common]
+    b_full = b_ret.loc[common]
+
+    ann_s = _realized_ann_return(s_ret) if s_ret.dropna().shape[0] >= 2 else np.nan
+    ann_b = annualised_return(b_full)
+    sr_s = _realized_sharpe(s_ret) if s_ret.dropna().shape[0] >= 2 else np.nan
+    sr_b = sharpe_ratio(b_full)
+    dd_s = compute_drawdown(s_ret, sparse_realized=True)["max_drawdown"] if len(s_ret) > 0 else 0.0
+    dd_b = compute_drawdown(b_full)["max_drawdown"]
+
+    cov_sb = s_full.cov(b_full)
+    var_b = b_full.var()
+    beta = float(cov_sb / var_b) if var_b and var_b > 1e-12 else np.nan
+    alpha_ann = float(ann_s - beta * ann_b) if not np.isnan(beta) and not np.isnan(ann_s) else np.nan
+
+    diff = s_full - b_full
+    te = annualised_volatility(diff) if len(diff) > 1 else np.nan
+    ir = (ann_s - ann_b) / te if te and te > 0 and not np.isnan(ann_s) else np.nan
+    corr = s_full.corr(b_full) if len(s_full) > 1 else np.nan
+
+    return {
+        "benchmark_sharpe": sr_b,
+        "benchmark_ann_return": ann_b,
+        "benchmark_max_dd": dd_b,
+        "strategy_sharpe": sr_s,
+        "strategy_ann_return": ann_s,
+        "strategy_max_dd": dd_s,
+        "correlation": corr,
+        "beta": beta,
+        "alpha_ann": alpha_ann,
+        "information_ratio": ir,
+    }
 
 
 def full_performance_report(daily_pnl_df, trades_df, spx_df=None, notional=NOTIONAL_CAPITAL):
     """
     Generate a comprehensive performance report.
-
-    Parameters
-    ----------
-    daily_pnl_df : pd.DataFrame
-        From run_backtest(), columns: date, daily_return, …
-    trades_df : pd.DataFrame
-        From trades_to_dataframe().
-    spx_df : pd.DataFrame, optional
-        SPX price series (date, spx_close) for buy-and-hold benchmark.
-    notional : float
-        Notional per trade for capacity estimate.
-
-    Returns
-    -------
-    dict
-        Nested dictionary of all metrics. If daily_return is empty or has
-        fewer than 2 observations, return metrics and drawdown use NaN/0
-        and a short notice is printed.
+    All metrics use realized returns only (full PnL on exit date); non-exit days are NaN.
     """
-    dr = daily_pnl_df["daily_return"].dropna()
-    if dr.empty or len(dr) < 2:
+    if trades_df is not None and not trades_df.empty:
+        dr = realized_returns_from_trades(trades_df, spx_df, notional)
+    elif daily_pnl_df is not None and not daily_pnl_df.empty and "daily_return" in daily_pnl_df.columns:
+        if "date" in daily_pnl_df.columns:
+            dr = daily_pnl_df.set_index("date")["daily_return"]
+        else:
+            dr = daily_pnl_df["daily_return"]
+    else:
+        dr = pd.Series()
+
+    if dr.empty or len(dr.dropna()) < 2:
         report = {
             "return_metrics": {
                 "annualised_return": np.nan,
@@ -521,60 +583,49 @@ def full_performance_report(daily_pnl_df, trades_df, spx_df=None, notional=NOTIO
                 "sortino_ratio": np.nan,
                 "calmar_ratio": np.nan,
             },
-            "drawdown": {"drawdown_series": dr, "max_drawdown": 0.0, "max_dd_start": None, "max_dd_end": None},
-            "distribution": return_statistics(dr) if len(dr) > 0 else {},
+            "drawdown": {"drawdown_series": pd.Series(), "max_drawdown": 0.0, "max_dd_start": None, "max_dd_end": None},
+            "distribution": {},
             "trade_stats": trade_statistics(trades_df),
-            "higher_moments": higher_moments_with_significance(dr),
+            "higher_moments": {},
             "probabilistic_sharpe_ratio": np.nan,
             "benchmark": {},
             "capacity": capacity_estimate(trades_df, notional),
         }
-        print("\n  [performance] Insufficient daily returns (need ≥2); report uses defaults for return metrics.")
+        print("\n  [performance] Insufficient realized returns (need ≥2 exits); report uses defaults.")
         return report
 
-    # Use full calendar (flat days = 0) so ann. return and Sharpe are not inflated
-    dr_calendar = returns_on_full_calendar(daily_pnl_df, spx_df)
-    if dr_calendar.empty or len(dr_calendar) < 2:
-        dr_calendar = dr
-    else:
-        dr_calendar = dr_calendar.dropna()
+    dd_result = compute_drawdown(dr, sparse_realized=True)
+    ann_ret = _realized_ann_return(dr)
+    ann_vol = _realized_ann_vol(dr)
+    max_dd = dd_result["max_drawdown"]
+    calmar = ann_ret / abs(max_dd) if max_dd != 0 else np.inf
 
     report = {
         "return_metrics": {
-            "annualised_return": annualised_return(dr_calendar),
-            "annualised_volatility": annualised_volatility(dr_calendar),
-            "sharpe_ratio": sharpe_ratio(dr_calendar),
-            "sortino_ratio": sortino_ratio(dr_calendar),
-            "calmar_ratio": calmar_ratio(dr_calendar),
+            "annualised_return": ann_ret,
+            "annualised_volatility": ann_vol,
+            "sharpe_ratio": _realized_sharpe(dr),
+            "sortino_ratio": _realized_sortino(dr),
+            "calmar_ratio": calmar,
         },
-        "drawdown": compute_drawdown(dr_calendar),
-        "distribution": return_statistics(dr_calendar),
+        "drawdown": dd_result,
+        "distribution": return_statistics(dr.dropna()),
         "trade_stats": trade_statistics(trades_df),
-        "higher_moments": higher_moments_with_significance(dr_calendar),
-        "probabilistic_sharpe_ratio": probabilistic_sharpe_ratio(dr_calendar, sr_ref=0.0),
+        "higher_moments": higher_moments_with_significance(dr.dropna()),
+        "probabilistic_sharpe_ratio": probabilistic_sharpe_ratio(dr.dropna(), sr_ref=0.0),
         "benchmark": {},
         "capacity": capacity_estimate(trades_df, notional),
     }
 
-    # Strategy returns for benchmark alignment (use calendar series so benchmark sees same span)
-    if "date" in daily_pnl_df.columns:
-        strat_ret = daily_pnl_df.set_index("date")["daily_return"].dropna()
-    else:
-        strat_ret = dr
-
-    if spx_df is not None and len(strat_ret) > 0:
-        start_date = strat_ret.index.min()
-        end_date = strat_ret.index.max()
+    if spx_df is not None and len(dr.dropna()) > 0:
+        start_date = dr.index.min()
+        end_date = dr.index.max()
         bench_ret = benchmark_returns_from_spx(spx_df, start_date, end_date)
         if len(bench_ret) > 0:
-            # Align strategy to benchmark calendar (flat days = 0)
-            s_ret = dr_calendar.reindex(bench_ret.index, fill_value=0.0).dropna()
-            if len(s_ret) > 0:
-                report["benchmark"] = benchmark_comparison(s_ret, bench_ret)
-            else:
-                report["benchmark"] = benchmark_comparison(strat_ret, bench_ret)
+            s_ret = dr.reindex(bench_ret.index)
+            if s_ret.dropna().shape[0] > 10:
+                report["benchmark"] = _benchmark_comparison_realized(s_ret, bench_ret)
 
-    # Pretty-print summary
     print("\n" + "=" * 60)
     print("  PERFORMANCE REPORT")
     print("=" * 60)
@@ -625,7 +676,9 @@ def full_performance_report(daily_pnl_df, trades_df, spx_df=None, notional=NOTIO
         print(f"  Benchmark Max DD:  {b['benchmark_max_dd']:.2%}")
         print(f"  Correlation:       {b['correlation']:.3f}")
         print(f"  Beta:              {b['beta']:.3f}")
-        print(f"  Alpha (ann):       {b['alpha_ann']:.2%}")
+        a = b['alpha_ann']
+        alpha_str = f"{a:.2%}" if not (np.isnan(a) or np.isinf(abs(a)) or abs(a) > 10) else "N/A"
+        print(f"  Alpha (ann):       {alpha_str}")
         print(f"  Info Ratio:        {b['information_ratio']:.3f}")
 
     # Capacity
@@ -640,41 +693,35 @@ def full_performance_report(daily_pnl_df, trades_df, spx_df=None, notional=NOTIO
     return report
 
 
-# ════════════════════════════════════════════════════════════
-# 6.  ROBUSTNESS TESTS
-# ════════════════════════════════════════════════════════════
-
 def robustness_by_subperiod(daily_pnl_df, n_periods=4):
     """
     Split the sample into n sub-periods and compute metrics for each.
-
-    Parameters
-    ----------
-    daily_pnl_df : pd.DataFrame
-    n_periods : int
-
-    Returns
-    -------
-    pd.DataFrame
-        One row per sub-period with Sharpe, return, max DD.
+    Uses realized returns (sparse); non-exit days are NaN.
     """
-    dr = daily_pnl_df[["date", "daily_return"]].dropna()
-    chunk_size = len(dr) // n_periods
+    df = daily_pnl_df[["date", "daily_return"]].copy()
+    df["date"] = pd.to_datetime(df["date"])
+    df = df.sort_values("date").reset_index(drop=True)
+    n = len(df)
+    if n < 10:
+        return pd.DataFrame()
+    chunk_size = n // n_periods
     results = []
 
     for i in range(n_periods):
         start = i * chunk_size
-        end = start + chunk_size if i < n_periods - 1 else len(dr)
-        chunk = dr.iloc[start:end]
-        r = chunk["daily_return"]
+        end = start + chunk_size if i < n_periods - 1 else n
+        chunk = df.iloc[start:end]
+        r = chunk.set_index("date")["daily_return"]
+        if r.dropna().shape[0] < 2:
+            continue
         results.append({
             "period": i + 1,
             "start": chunk["date"].iloc[0],
             "end": chunk["date"].iloc[-1],
-            "ann_return": annualised_return(r),
-            "ann_vol": annualised_volatility(r),
-            "sharpe": sharpe_ratio(r),
-            "max_dd": compute_drawdown(r)["max_drawdown"],
+            "ann_return": _realized_ann_return(r),
+            "ann_vol": _realized_ann_vol(r),
+            "sharpe": _realized_sharpe(r),
+            "max_dd": compute_drawdown(r, sparse_realized=True)["max_drawdown"],
             "n_days": len(r),
         })
 
@@ -711,13 +758,15 @@ def robustness_by_parameter(signal_df, spx_df, backtest_fn,
                                          hold_days=hd, cost_bps=cost)
             if pnl_df.empty or len(pnl_df) < 10:
                 continue
-            dr = pnl_df["daily_return"]
+            dr = pnl_df.set_index("date")["daily_return"]
+            if dr.dropna().shape[0] < 2:
+                continue
             results.append({
                 "hold_days": hd,
                 "cost_bps": cost,
-                "sharpe": sharpe_ratio(dr),
-                "ann_return": annualised_return(dr),
-                "max_dd": compute_drawdown(dr)["max_drawdown"],
+                "sharpe": _realized_sharpe(dr),
+                "ann_return": _realized_ann_return(dr),
+                "max_dd": compute_drawdown(dr, sparse_realized=True)["max_drawdown"],
                 "n_trades": len(trades),
             })
 

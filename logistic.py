@@ -6,8 +6,8 @@ Workflow
 --------
 1. Use lagged returns, rolling return features, and calendar features as predictors.
 2. Build the cumulative log return from each date through that week's Friday.
-3. Standardize that target by sqrt(days_to_friday) so weekdays are pooled on a
-   comparable scale.
+3. Standardize that target by sqrt(DTE) (calendar days to expiry) so weekdays
+   are pooled on a comparable scale.
 4. Create quantile buckets from the standardized target.
 5. Fit one balanced logistic regression per bucket.
 6. Convert predicted bucket probabilities into expected realised volatility.
@@ -42,6 +42,14 @@ def build_return_features(df: pd.DataFrame, return_col: str = "log_return") -> p
     out = df.copy().sort_values("date").reset_index(drop=True)
     out["weekday"] = out["date"].dt.weekday
     out["days_to_friday"] = (4 - out["weekday"]).clip(lower=0) + 1
+    # Calendar DTE to expiry (next Friday): variance scales with calendar time
+    cal_dte = (4 - out["weekday"]) % 7
+    cal_dte = cal_dte.replace(0, 7)  # Friday → 7 (next Friday expiry)
+    # Use dte_trade from the feature table when available (handles holidays)
+    if "dte_trade" in out.columns:
+        out["dte"] = out["dte_trade"].fillna(cal_dte).astype(int)
+    else:
+        out["dte"] = cal_dte.astype(int)
 
     for lag in DEFAULT_LAGS:
         out[f"{return_col}_lag_{lag}"] = out[return_col].shift(lag)
@@ -62,10 +70,11 @@ def add_weekly_friday_target(
     return_col: str = "log_return",
 ) -> pd.DataFrame:
     """
-    Add cumulative return through Friday and its horizon-standardized version.
+    Add cumulative return through Friday and its DTE-standardized version.
 
-    `days_to_friday` is inclusive:
-      Monday -> 5, Tuesday -> 4, ..., Friday -> 1
+    Forward return is accumulated over `days_to_friday` trading days, then
+    normalized by sqrt(DTE) where DTE is calendar days to expiry.
+    This is the standard options convention: variance scales with calendar time.
     """
     out = df.copy()
     target_forward_return = np.full(len(out), np.nan)
@@ -80,7 +89,7 @@ def add_weekly_friday_target(
 
     out["target_forward_return"] = target_forward_return
     out["target_horizon_scaled_return"] = (
-        out["target_forward_return"] / np.sqrt(out["days_to_friday"])
+        out["target_forward_return"] / np.sqrt(out["dte"])
     )
     return out
 
@@ -207,14 +216,13 @@ def compute_expected_realised_volatility(
     """
     Convert predicted quantile probabilities into expected realised volatility.
 
-    Each quantile bucket is represented by its median horizon-standardized
-    return z = R / sqrt(h), where h is days_to_friday. Then:
+    Each quantile bucket is represented by its median DTE-standardized
+    return z = R / sqrt(DTE), where DTE is calendar days to expiry. Then:
 
-        E[R^2 | h] = h * E[z^2]
-        E[RV_annual | h] = (252 / h) * E[R^2 | h] = 252 * E[z^2]
+        E[R^2 | DTE] = DTE * E[z^2]
+        E[RV_annual | DTE] = (365 / DTE) * E[R^2 | DTE] = 365 * E[z^2]
 
-    so the annualized expected variance depends only on the predicted second
-    moment of the standardized target.
+    Since we normalize by calendar DTE, annualization uses 365, not 252.
     """
     out = df.copy()
     expected_scaled_return_sq_plain = np.zeros(len(out), dtype=float)
@@ -244,8 +252,9 @@ def compute_expected_realised_volatility(
         expected_scaled_return_sq_weighted,
         np.nan,
     )
-    out["expected_realised_variance_plain"] = TRADING_DAYS_PER_YEAR * out["expected_scaled_return_sq_plain"]
-    out["expected_realised_variance"] = TRADING_DAYS_PER_YEAR * out["expected_scaled_return_sq"]
+    CALENDAR_DAYS_PER_YEAR = 365
+    out["expected_realised_variance_plain"] = CALENDAR_DAYS_PER_YEAR * out["expected_scaled_return_sq_plain"]
+    out["expected_realised_variance"] = CALENDAR_DAYS_PER_YEAR * out["expected_scaled_return_sq"]
     out["expected_realised_volatility_plain"] = np.sqrt(out["expected_realised_variance_plain"].clip(lower=0))
     out["expected_realised_volatility"] = np.sqrt(out["expected_realised_variance"].clip(lower=0))
     return out
@@ -271,7 +280,7 @@ def run_logistic_expected_vol(
         if c.startswith(f"{return_col}_lag_")
         or c.startswith(f"abs_{return_col}_lag_")
         or c.startswith("rolling_")
-        or c in {"weekday", "days_to_friday"}
+        or c in {"weekday", "dte"}
     ]
 
     modeled, models = fit_balanced_bucket_models(
@@ -304,7 +313,7 @@ def run_logistic_expected_vol_oos(
         if c.startswith(f"{return_col}_lag_")
         or c.startswith(f"abs_{return_col}_lag_")
         or c.startswith("rolling_")
-        or c in {"weekday", "days_to_friday"}
+        or c in {"weekday", "dte"}
     ]
 
     results = []

@@ -1,25 +1,7 @@
-# ============================================================
-# backtest.py — Delta-Hedged Straddle Backtesting Engine
-# ============================================================
 """
-Simulates a volatility-trading strategy that:
-
-    1. Enters delta-hedged ATM straddles when signal is extreme
-    2. Delta-hedges at a configurable frequency
-    3. Exits at expiry or at a fixed horizon (never holds past option expiry)
-    4. Accounts for bid-ask spreads and transaction costs
-
-When signals carry exdate_trade, positions are closed at or before that expiry.
-Otherwise hold is capped at days to next Friday (weeklies). No position is ever
-held past the option expiry date.
-
-The core abstraction is a ``Trade`` dataclass that tracks each
-position from entry to exit, computing component PnLs.
-
-**Daily PnL note:** each trade's net PnL is spread *evenly* across its
-holding days (amortized attribution). This is a simplification — it does
-not reflect intra-trade mark-to-market. Sharpe, drawdown, and other
-return-based stats computed from this series are therefore approximations.
+Delta-hedged straddle backtesting engine.
+Enters when signal is extreme; exits at expiry or stop-loss.
+Daily PnL is realized (full PnL on exit date only); non-exit days are NaN.
 """
 
 import numpy as np
@@ -38,10 +20,6 @@ from src.config import (
 )
 
 
-# ────────────────────────────────────────────────────────────
-# Data Structures
-# ────────────────────────────────────────────────────────────
-
 @dataclass
 class Trade:
     """Represents one completed straddle trade."""
@@ -59,12 +37,8 @@ class Trade:
     txn_cost: float             # total transaction costs
     net_pnl: float              # option_pnl + hedge_pnl − txn_cost
     holding_days: int
-    stopped_out: bool = False   # True if exited via stop-loss
+    stopped_out: bool = False
 
-
-# ────────────────────────────────────────────────────────────
-# 1.  Approximate Straddle Pricing (Black-Scholes)
-# ────────────────────────────────────────────────────────────
 
 def bs_straddle_price(S, K, T, sigma, r=0.0):
     """
@@ -94,10 +68,6 @@ def bs_straddle_price(S, K, T, sigma, r=0.0):
 
     return call + put
 
-
-# ────────────────────────────────────────────────────────────
-# 2.  Delta-Hedging Simulation
-# ────────────────────────────────────────────────────────────
 
 def simulate_delta_hedge(prices, sigma, T_years, direction):
     """
@@ -160,19 +130,15 @@ def simulate_delta_hedge(prices, sigma, T_years, direction):
     return hedge_pnl
 
 
-# ────────────────────────────────────────────────────────────
-# 2b. Days to Next Friday (for Friday-expiring weeklies)
-# ────────────────────────────────────────────────────────────
-
 def trading_days_until_next_friday(d: pd.Timestamp) -> int:
     """
     Trading days from date d until the next Friday (inclusive of Friday).
     Monday → Friday = 4 days, Friday → next Friday = 5 days.
     """
-    w = d.weekday()  # 0=Mon, 4=Fri
-    if w == 4:  # Friday: next expiry is next week
+    w = d.weekday()
+    if w == 4:
         return 5
-    return 4 - w  # Mon:4, Tue:3, Wed:2, Thu:1
+    return 4 - w
 
 
 def effective_hold_days(entry_date: pd.Timestamp, requested_hold: int) -> int:
@@ -199,10 +165,6 @@ def hold_days_from_expiry(entry_date: pd.Timestamp, exdate) -> Optional[int]:
         return None  # missing or already past expiry
     return len(pd.bdate_range(entry_date, ex))
 
-
-# ────────────────────────────────────────────────────────────
-# 3.  Core Backtester
-# ────────────────────────────────────────────────────────────
 
 def run_backtest(signal_df, spx_df, hold_days=None, cost_bps=None,
                  notional=None, stop_loss_pct=None):
@@ -258,10 +220,14 @@ def run_backtest(signal_df, spx_df, hold_days=None, cost_bps=None,
         trades_list : List[Trade] — completed trades
         daily_pnl_df : pd.DataFrame — daily strategy returns
     """
-    hold_days = hold_days or POSITION_HOLD_DAYS
-    cost_bps = cost_bps or TRANSACTION_COST_BPS
-    notional = notional or NOTIONAL_CAPITAL
-    stop_loss_pct = stop_loss_pct if stop_loss_pct is not None else STOP_LOSS_PCT
+    if hold_days is None:
+        hold_days = POSITION_HOLD_DAYS
+    if cost_bps is None:
+        cost_bps = TRANSACTION_COST_BPS
+    if notional is None:
+        notional = NOTIONAL_CAPITAL
+    if stop_loss_pct is None:
+        stop_loss_pct = STOP_LOSS_PCT
     multiplier = CONTRACT_MULTIPLIER
 
     # Merge SPX prices with signals
@@ -273,7 +239,6 @@ def run_backtest(signal_df, spx_df, hold_days=None, cost_bps=None,
 
     n = len(merged)
     trades: List[Trade] = []
-    daily_pnl = []
 
     # Track open position
     in_position = False
@@ -454,35 +419,15 @@ def run_backtest(signal_df, spx_df, hold_days=None, cost_bps=None,
                 )
                 trades.append(trade)
 
-                # Amortized daily PnL: net PnL spread evenly over calendar days in position.
-                num_days = max(i - entry_idx + 1, 1)  # so sum(daily_pnl) == net
-                daily_dollar = net / num_days
-                daily_ret = daily_dollar / notional
-                for d in range(entry_idx, min(i + 1, n)):
-                    daily_pnl.append({
-                        "date": merged.iloc[d]["date"],
-                        "daily_pnl": daily_dollar,
-                        "daily_return": daily_ret,
-                    })
-
                 in_position = False
 
         i += 1
 
-    # ── Build daily PnL DataFrame ──────────────────────────
-    if daily_pnl:
-        pnl_df = pd.DataFrame(daily_pnl)
-        # Aggregate if multiple trades overlap (shouldn't happen here)
-        pnl_df = pnl_df.groupby("date").sum().reset_index()
-        pnl_df["cumulative_pnl"] = pnl_df["daily_pnl"].cumsum()
-        pnl_df["cumulative_return"] = (1 + pnl_df["daily_return"]).cumprod() - 1
-    else:
-        pnl_df = pd.DataFrame(columns=["date", "daily_pnl", "daily_return",
-                                        "cumulative_pnl", "cumulative_return"])
+    pnl_df = _build_realized_pnl_df(trades, merged, notional)
 
     n_stopped = sum(1 for t in trades if getattr(t, "stopped_out", False))
     print(f"[backtest] Completed: {len(trades)} trades, "
-          f"{len(pnl_df)} trading days with PnL.  "
+          f"{len(pnl_df)} calendar days (realized PnL on exit only).  "
           f"(notional=${notional:,.0f}, stop-loss={stop_loss_pct:.0%})")
     if trades:
         wins = sum(1 for t in trades if t.net_pnl > 0)
@@ -498,9 +443,41 @@ def run_backtest(signal_df, spx_df, hold_days=None, cost_bps=None,
     return trades, pnl_df
 
 
-# ────────────────────────────────────────────────────────────
-# 4.  Convert Trades to DataFrame
-# ────────────────────────────────────────────────────────────
+def _build_realized_pnl_df(trades, merged, notional):
+    """
+    Build daily PnL DataFrame from trades: full PnL on exit date only.
+    Full calendar from merged; non-exit days are NaN (no fill with 0).
+    """
+    if not trades:
+        return pd.DataFrame(columns=["date", "daily_pnl", "daily_return",
+                                     "cumulative_pnl", "cumulative_return"])
+
+    exits = {}
+    for t in trades:
+        d = pd.Timestamp(t.exit_date)
+        exits[d] = exits.get(d, 0) + t.net_pnl
+
+    ret = pd.Series(exits) / notional
+    ret.index = pd.to_datetime(ret.index)
+
+    calendar = merged["date"].drop_duplicates().sort_values().reset_index(drop=True)
+    full_dates = pd.DatetimeIndex(calendar.values)
+    ret_full = ret.reindex(full_dates)
+
+    daily_pnl = ret_full * notional
+    r_for_cum = ret_full.fillna(0)
+    cum_ret = (1 + r_for_cum).cumprod() - 1
+    cum_pnl = cum_ret * notional
+
+    pnl_df = pd.DataFrame({
+        "date": full_dates,
+        "daily_pnl": daily_pnl.values,
+        "daily_return": ret_full.values,
+        "cumulative_pnl": cum_pnl.values,
+        "cumulative_return": cum_ret.values,
+    })
+    return pnl_df
+
 
 def trades_to_dataframe(trades):
     """

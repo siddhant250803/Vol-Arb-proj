@@ -1,8 +1,0 @@
-\beamer@sectionintoc {1}{Introduction}{2}{0}{1}
-\beamer@sectionintoc {2}{Data \& Features}{3}{0}{2}
-\beamer@sectionintoc {3}{Logistic Regression (RV Forecast)}{7}{0}{3}
-\beamer@sectionintoc {4}{Backtest Performance}{10}{0}{4}
-\beamer@sectionintoc {5}{Strategy Comparison \& FOMC}{14}{0}{5}
-\beamer@sectionintoc {6}{OOS, Stress \& Regime}{17}{0}{6}
-\beamer@sectionintoc {7}{Parameter Sensitivity \& Inference}{20}{0}{7}
-\beamer@sectionintoc {8}{Conclusion}{22}{0}{8}

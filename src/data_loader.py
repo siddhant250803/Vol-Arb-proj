@@ -1,17 +1,6 @@
-# ============================================================
-# data_loader.py — Data Loading, Cleaning & Preparation
-# ============================================================
 """
-Responsible for:
-    1. Loading raw OptionMetrics SPX option data (full or filtered)
-    2. Loading the Treasury yield panel (risk-free rates)
-    3. Extracting a clean daily SPX price series
-       — from ``spx_price`` column if present, OR
-       — derived from ``forward_price`` of shortest-dated ATM options
-    4. Applying quality filters (bid > min, spread, moneyness, DTE)
-    5. Computing derived columns (mid price, moneyness, DTE, strike)
-
-All heavy I/O lives here; downstream modules receive clean DataFrames.
+Data loading, cleaning, and preparation for OptionMetrics SPX options.
+Extracts SPX prices, applies quality filters, computes derived columns.
 """
 
 import numpy as np
@@ -33,9 +22,6 @@ from src.config import (
 )
 
 
-# ────────────────────────────────────────────────────────────
-# 1.  Load Raw Options Data
-# ────────────────────────────────────────────────────────────
 def load_options_raw(filepath=None, nrows=None):
     """
     Read the OptionMetrics CSV into a DataFrame with correct dtypes.
@@ -81,7 +67,6 @@ def load_options_raw(filepath=None, nrows=None):
         nrows=nrows,
     )
     print(f"[data_loader]   → {len(df):,} rows loaded.")
-    # Ensure required columns exist so downstream does not fail later with obscure errors
     required = ["date", "exdate", "impl_volatility", "strike_price", "best_bid", "best_offer"]
     missing = [c for c in required if c not in df.columns]
     if missing:
@@ -89,9 +74,6 @@ def load_options_raw(filepath=None, nrows=None):
     return df
 
 
-# ────────────────────────────────────────────────────────────
-# 2.  Derive SPX Spot Price from Option Data
-# ────────────────────────────────────────────────────────────
 def _derive_spot_price(df):
     """
     When the raw data lacks ``spx_price``, derive a daily SPX spot
@@ -118,7 +100,6 @@ def _derive_spot_price(df):
     """
     out = df.copy()
 
-    # ── Try forward_price first ────────────────────────────
     has_fwd = (
         "forward_price" in out.columns
         and out["forward_price"].notna().sum() > 100
@@ -139,26 +120,19 @@ def _derive_spot_price(df):
         print(f"[data_loader] Derived SPX spot from forward_price for {n_dates} dates.")
         return out
 
-    # ── Derive from ATM strike ─────────────────────────────
-    # strike_price is stored × 1000
     out["_strike_real"] = out[COL["strike_raw"]] / STRIKE_DIVISOR
     out["_abs_delta"] = out["delta"].abs()
 
-    # Only keep rows with valid delta
     has_delta = out["_abs_delta"].notna()
     valid = out.loc[has_delta].copy()
-
-    # For each date, find options closest to |delta| = 0.50
     valid["_delta_dist"] = (valid["_abs_delta"] - 0.50).abs()
 
-    # Pick the top-5 most ATM options per date (by delta distance)
     atm = (
         valid.sort_values(["date", "_delta_dist"])
         .groupby("date")
         .head(5)
     )
 
-    # Median strike of these most-ATM options = spot proxy
     spot_map = (
         atm.groupby("date")["_strike_real"]
         .median()
@@ -173,10 +147,7 @@ def _derive_spot_price(df):
     return out
 
 
-# ────────────────────────────────────────────────────────────
-# 3.  Clean & Filter Options
-# ────────────────────────────────────────────────────────────
-def clean_options(df):
+def clean_options(df, min_dte=None, max_dte=None):
     """
     Apply quality filters and compute derived columns.
 
@@ -192,6 +163,10 @@ def clean_options(df):
     ----------
     df : pd.DataFrame
         Raw options data from ``load_options_raw``.
+    min_dte : int, optional
+        Override config MIN_DTE.
+    max_dte : int, optional
+        Override config MAX_DTE.
 
     Returns
     -------
@@ -199,17 +174,18 @@ def clean_options(df):
         Cleaned options data with new columns:
         strike, mid, spread, spread_ratio, dte, moneyness, log_moneyness
     """
+    dte_lo = min_dte if min_dte is not None else MIN_DTE
+    dte_hi = max_dte if max_dte is not None else MAX_DTE
+
     out = df.copy()
     n_start = len(out)
 
-    # ── Ensure spx_price exists ───────────────────────────────
     if COL["spot"] not in out.columns:
         out = _derive_spot_price(out)
 
     # Drop rows where spot could not be determined
     out = out.dropna(subset=[COL["spot"]])
 
-    # ── Derived columns ──────────────────────────────────────
     out["strike"] = out[COL["strike_raw"]] / STRIKE_DIVISOR
     out["mid"] = (out[COL["bid"]] + out[COL["ask"]]) / 2.0
     out["spread"] = out[COL["ask"]] - out[COL["bid"]]
@@ -218,20 +194,11 @@ def clean_options(df):
     out["moneyness"] = out["strike"] / out[COL["spot"]]
     out["log_moneyness"] = np.log(out["moneyness"])
 
-    # ── Filter: valid IV ─────────────────────────────────────
     out = out.dropna(subset=[COL["iv"]])
     out = out[out[COL["iv"]] > 0]
-
-    # ── Filter: minimum bid ──────────────────────────────────
     out = out[out[COL["bid"]] >= MIN_BID]
-
-    # ── Filter: bid-ask spread ───────────────────────────────
     out = out[out["spread_ratio"] <= MAX_SPREAD_RATIO]
-
-    # ── Filter: days to expiration ───────────────────────────
-    out = out[(out["dte"] >= MIN_DTE) & (out["dte"] <= MAX_DTE)]
-
-    # ── Filter: moneyness band ───────────────────────────────
+    out = out[(out["dte"] >= dte_lo) & (out["dte"] <= dte_hi)]
     out = out[
         (out["moneyness"] >= 1.0 - MONEYNESS_BAND)
         & (out["moneyness"] <= 1.0 + MONEYNESS_BAND)
@@ -239,15 +206,12 @@ def clean_options(df):
 
     n_end = len(out)
     print(
-        f"[data_loader] Cleaned options: {n_start:,} → {n_end:,} "
+        f"[data_loader] Cleaned options (DTE {dte_lo}–{dte_hi}): {n_start:,} → {n_end:,} "
         f"({n_start - n_end:,} rows removed)"
     )
     return out.reset_index(drop=True)
 
 
-# ────────────────────────────────────────────────────────────
-# 4.  Extract Daily SPX Prices
-# ────────────────────────────────────────────────────────────
 def extract_spx_prices(df):
     """
     Extract a unique daily SPX close-price series from the options data.
@@ -267,7 +231,6 @@ def extract_spx_prices(df):
         Columns: date, spx_close, log_return, abs_return
         Sorted by date, one row per trading day.
     """
-    # If spx_price is missing, derive it first
     if COL["spot"] not in df.columns:
         df = _derive_spot_price(df)
 
@@ -279,10 +242,7 @@ def extract_spx_prices(df):
         .reset_index(drop=True)
     )
 
-    # Drop dates with missing spot
     prices = prices.dropna(subset=["spx_close"])
-
-    # Daily log-returns and absolute returns
     prices["log_return"] = np.log(
         prices["spx_close"] / prices["spx_close"].shift(1)
     )
@@ -296,9 +256,6 @@ def extract_spx_prices(df):
     return prices
 
 
-# ────────────────────────────────────────────────────────────
-# 5.  Load Risk-Free Rate Curve
-# ────────────────────────────────────────────────────────────
 def load_yield_curve(filepath=None):
     """
     Load the daily zero-coupon yield panel.
@@ -317,18 +274,15 @@ def load_yield_curve(filepath=None):
 
     raw = pd.read_csv(filepath, low_memory=False)
 
-    # First column is the date (unnamed or index-like)
     date_col = raw.columns[0]
     raw[date_col] = pd.to_datetime(raw[date_col])
     raw = raw.rename(columns={date_col: "date"})
 
-    # Drop the MAX_DATA_TTM helper column
     if "MAX_DATA_TTM" in raw.columns:
         raw = raw.drop(columns=["MAX_DATA_TTM"])
 
     raw = raw.set_index("date").sort_index()
 
-    # Convert column names to integers (maturity in months); skip non-numeric
     def _safe_int(c):
         try:
             return int(float(c))
@@ -365,9 +319,6 @@ def get_risk_free_rate(yield_df, target_months=1):
     return series
 
 
-# ────────────────────────────────────────────────────────────
-# 6.  Convenience Wrapper
-# ────────────────────────────────────────────────────────────
 def load_all_data(nrows=None):
     """
     One-call loader that returns everything needed by downstream modules.
@@ -375,19 +326,22 @@ def load_all_data(nrows=None):
     Returns
     -------
     dict with keys:
-        "options"   – cleaned options DataFrame
-        "spx"       – daily SPX price / return series
-        "yields"    – full yield panel
-        "rf"        – 1-month risk-free rate series
+        "options"      – entry-day options (DTE 5–9), used for VRP signal
+        "options_wide" – wider DTE options (DTE 5–60), used for term-structure analysis
+        "spx"          – daily SPX price / return series
+        "yields"       – full yield panel
+        "rf"           – 1-month risk-free rate series
     """
     raw = load_options_raw(nrows=nrows)
-    options = clean_options(raw)
+    options = clean_options(raw)                          # DTE 5–9 (entry-day only)
+    options_wide = clean_options(raw, min_dte=5, max_dte=60)   # DTE 5–60 (for term-structure)
     spx = extract_spx_prices(raw)        # use raw to keep full price history
     yields = load_yield_curve()
     rf = get_risk_free_rate(yields, target_months=1)
 
     return {
         "options": options,
+        "options_wide": options_wide,
         "spx": spx,
         "yields": yields,
         "rf": rf,

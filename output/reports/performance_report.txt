@@ -4,60 +4,60 @@
 ============================================================
 
 RETURN METRICS
-  annualised_return             : 2.4396
-  annualised_volatility         : 0.6706
-  sharpe_ratio                  : 2.1609
-  sortino_ratio                 : 4.4337
-  calmar_ratio                  : 2.9084
+  annualised_return             : 0.6792
+  annualised_volatility         : 1.4610
+  sharpe_ratio                  : 0.4649
+  sortino_ratio                 : 3.8662
+  calmar_ratio                  : 0.8735
   probabilistic_sharpe_ratio (SR>0): 1.0000
 
 DRAWDOWN
-  max_drawdown                  : -0.8388
+  max_drawdown                  : -0.7776
 
 DISTRIBUTION & HIGHER MOMENTS
-  mean_daily                    : 0.005750
-  std_daily                     : 0.042243
-  skewness                      : 2.582652
-  kurtosis                      : 18.502087
-  min_daily                     : -0.124995
-  max_daily                     : 0.429881
-  pct_positive                  : 0.275982
-  var_95                        : -0.049831
-  cvar_95                       : -0.069265
-  skew_se                       : 0.045667
+  mean_daily                    : 0.119655
+  std_daily                     : 0.439360
+  skewness                      : 1.157654
+  kurtosis                      : 1.177440
+  min_daily                     : -0.250000
+  max_daily                     : 1.897985
+  pct_positive                  : 0.480620
+  var_95                        : -0.249878
+  cvar_95                       : -0.249937
+  skew_se                       : 0.215666
   skew_significant              : True
   fat_tails                     : True
 
 TRADE STATISTICS (gain per trade, holding period, frequency)
-  n_trades                      : 188
-  win_rate                      : 0.4628
-  avg_pnl                       : 87995.7177
-  median_pnl                    : -69806.5769
-  std_pnl                       : 422516.0857
-  total_pnl                     : 16543194.9340
-  avg_winner                    : 452276.7197
-  avg_loser                     : -225790.8879
-  profit_factor                 : 1.7254
-  max_win                       : 2184541.3065
-  max_loss                      : -249989.8626
-  avg_holding_days              : 6.5266
-  median_holding_days           : 6.0000
+  n_trades                      : 129
+  win_rate                      : 0.4806
+  avg_pnl                       : 119655.2186
+  median_pnl                    : -59442.3815
+  std_pnl                       : 439359.8833
+  total_pnl                     : 15435523.2042
+  avg_winner                    : 497501.8492
+  avg_loser                     : -229993.9022
+  profit_factor                 : 2.0017
+  max_win                       : 1897985.3826
+  max_loss                      : -249999.8513
+  avg_holding_days              : 2.7287
+  median_holding_days           : 3.0000
   min_holding_days              : 1
-  max_holding_days              : 23
-  trades_per_year               : 16.0888
-  avg_iv_rv_spread              : 0.0060
+  max_holding_days              : 5
+  trades_per_year               : 11.0371
+  avg_iv_rv_spread              : -0.0436
 
 BENCHMARK (buy-and-hold SPX)
-  benchmark_sharpe              : 0.6632
-  benchmark_ann_return          : 0.1065
+  benchmark_sharpe              : 0.6602
+  benchmark_ann_return          : 0.1059
   benchmark_max_dd              : -0.3304
-  strategy_sharpe               : 2.1704
-  strategy_ann_return           : 2.4605
-  strategy_max_dd               : -0.8388
-  correlation                   : 0.0140
-  beta                          : 0.0534
-  alpha_ann                     : 3.2402
-  information_ratio             : 3.4079
+  strategy_sharpe               : 0.4956
+  strategy_ann_return           : 0.7223
+  strategy_max_dd               : -0.7776
+  correlation                   : 0.0130
+  beta                          : 0.1127
+  alpha_ann                     : 0.7104
+  information_ratio             : 0.4027
 
 CAPACITY
   Illustrative: assumes SPX options ADV ~$50B; deploy up to 1.0% of ADV. Not data-driven.

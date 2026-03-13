@@ -1,15 +1,5 @@
-# ============================================================
-# feature_engineering.py — IV Measures & Realized Volatility
-# ============================================================
 """
-Responsible for:
-    1. ATM implied volatility extraction (constant-maturity interpolation)
-    2. Model-free implied variance (Carr-Madan variance swap)
-    3. Realized variance / volatility computation
-    4. Bipower variation (jump-robust RV)
-    5. Event-flag features (FOMC, CPI, NFP windows)
-
-These features feed into the forecasting models and signal generators.
+IV measures (ATM, model-free), realized variance, bipower variation, event flags.
 """
 
 import numpy as np
@@ -27,13 +17,6 @@ from src.config import (
 )
 
 
-# ════════════════════════════════════════════════════════════
-# SECTION A:  IMPLIED VOLATILITY MEASURES
-# ════════════════════════════════════════════════════════════
-
-# ────────────────────────────────────────────────────────────
-# A1.  ATM Implied Volatility (at expiry horizon)
-# ────────────────────────────────────────────────────────────
 def compute_atm_iv_at_expiry(options_df, expiry_df):
     """
     For each trading date, extract ATM IV at the time-to-expiry of the
@@ -106,9 +89,6 @@ def compute_atm_iv_at_expiry(options_df, expiry_df):
     return out
 
 
-# ────────────────────────────────────────────────────────────
-# A2.  Model-Free Implied Variance (Variance Swap)
-# ────────────────────────────────────────────────────────────
 def compute_model_free_iv(options_df, rf_series=None):
     """
     Construct a synthetic variance-swap strike using the discrete
@@ -141,25 +121,21 @@ def compute_model_free_iv(options_df, rf_series=None):
         if T <= 0:
             continue
 
-        # Risk-free rate for this date
         r = 0.0
         if rf_series is not None and date in rf_series.index:
             r = rf_series.loc[date]
 
-        # Forward price (use data column if available, else approximate)
         if COL["forward"] in grp.columns and grp[COL["forward"]].notna().any():
             F = grp[COL["forward"]].dropna().iloc[0]
         else:
             F = spot * np.exp(r * T)
 
-        # Filter to strikes within ±5% of forward
         lo = F * (1.0 - VARIANCE_SWAP_STRIKE_BAND)
         hi = F * (1.0 + VARIANCE_SWAP_STRIKE_BAND)
         sub = grp[(grp["strike"] >= lo) & (grp["strike"] <= hi)].copy()
         if len(sub) < 4:
             continue
 
-        # Separate OTM: puts below F, calls at/above F
         puts = sub[(sub[COL["cp_flag"]] == "P") & (sub["strike"] < F)]
         calls = sub[(sub[COL["cp_flag"]] == "C") & (sub["strike"] >= F)]
         otm = pd.concat([puts, calls]).sort_values("strike")
@@ -170,12 +146,10 @@ def compute_model_free_iv(options_df, rf_series=None):
         strikes = otm["strike"].values
         prices = otm["mid"].values
 
-        # Discrete Carr-Madan summation
         variance = 0.0
         for i in range(len(strikes)):
             K = strikes[i]
             Q = prices[i]
-            # ΔK: use midpoint spacing
             if i == 0:
                 dK = strikes[1] - strikes[0]
             elif i == len(strikes) - 1:
@@ -185,14 +159,14 @@ def compute_model_free_iv(options_df, rf_series=None):
 
             variance += (dK / (K ** 2)) * np.exp(r * T) * Q
 
-        mfiv = (2.0 / T) * variance  # annualised implied variance
+        mfiv = (2.0 / T) * variance
 
         if mfiv > 0:
             results.append({
                 "date": date,
                 "dte": dte,
                 "mfiv": mfiv,
-                "mfiv_vol": np.sqrt(mfiv),  # implied vol from var swap
+                "mfiv_vol": np.sqrt(mfiv),
             })
 
     out = pd.DataFrame(results)
@@ -259,13 +233,6 @@ def compute_mfiv_at_expiry(mfiv_df, expiry_df):
     return out
 
 
-# ════════════════════════════════════════════════════════════
-# SECTION B:  REALIZED VOLATILITY MEASURES
-# ════════════════════════════════════════════════════════════
-
-# ────────────────────────────────────────────────────────────
-# B1.  Standard Realized Variance
-# ────────────────────────────────────────────────────────────
 def compute_realized_variance(spx_df, windows=None):
     """
     Compute rolling realized variance at multiple horizons.
@@ -298,7 +265,6 @@ def compute_realized_variance(spx_df, windows=None):
             * (ANNUALISATION_FACTOR / w)
         )
 
-    # Also compute realised *volatility* (sqrt of variance)
     for label in windows:
         df[f"rvol_{label}"] = np.sqrt(df[f"rv_{label}"])
 
@@ -308,9 +274,6 @@ def compute_realized_variance(spx_df, windows=None):
     return df
 
 
-# ────────────────────────────────────────────────────────────
-# B2.  Bipower Variation (jump-robust)
-# ────────────────────────────────────────────────────────────
 def compute_bipower_variation(spx_df, window=22):
     """
     Bipower variation: a jump-robust estimator of integrated variance.
@@ -342,9 +305,6 @@ def compute_bipower_variation(spx_df, window=22):
     return df
 
 
-# ────────────────────────────────────────────────────────────
-# B3.  Forward-Realised Variance at Expiry (label for forecasting)
-# ────────────────────────────────────────────────────────────
 def compute_forward_rv_at_expiry(spx_df, expiry_df):
     """
     Compute the *future* realised variance over the next dte_trade days for each
@@ -399,10 +359,6 @@ def compute_forward_rv_at_expiry(spx_df, expiry_df):
     return out
 
 
-# ════════════════════════════════════════════════════════════
-# SECTION C:  EVENT FLAGS
-# ════════════════════════════════════════════════════════════
-
 def add_event_flags(df, date_col="date"):
     """
     Add binary indicators for major macro-event windows.
@@ -423,7 +379,6 @@ def add_event_flags(df, date_col="date"):
     fomc = pd.to_datetime(FOMC_DATES)
     out = df.copy()
 
-    # Mark dates within ±7 calendar days of an FOMC meeting
     out["fomc_window"] = 0
     for fd in fomc:
         mask = (out[date_col] >= fd - pd.Timedelta(days=7)) & (
@@ -438,9 +393,6 @@ def add_event_flags(df, date_col="date"):
     return out
 
 
-# ────────────────────────────────────────────────────────────
-# D0.  Tradeable Expiry (for Friday-expiring weeklies)
-# ────────────────────────────────────────────────────────────
 def compute_tradeable_expiry(options_df):
     """
     For each date, get the exdate of the shortest-dated option in range
@@ -465,10 +417,6 @@ def compute_tradeable_expiry(options_df):
     print(f"[features] Tradeable expiry: {len(out)} dates with exdate_trade.")
     return out
 
-
-# ════════════════════════════════════════════════════════════
-# SECTION D:  MASTER FEATURE TABLE
-# ════════════════════════════════════════════════════════════
 
 def build_feature_table(options_df, spx_df, rf_series=None):
     """
@@ -496,24 +444,16 @@ def build_feature_table(options_df, spx_df, rf_series=None):
         - mfiv_at_expiry, mfiv_vol_at_expiry
         - fomc_window
     """
-    print("\n" + "=" * 60)
-    print("  BUILDING MASTER FEATURE TABLE")
-    print("=" * 60)
-
-    # ── Tradeable expiry (needed for IV/RV at expiry horizon) ─
     expiry_df = compute_tradeable_expiry(options_df)
 
-    # ── Realised volatility ────────────────────────────────
     rv = compute_realized_variance(spx_df)
     bv = compute_bipower_variation(spx_df)
     fwd = compute_forward_rv_at_expiry(spx_df, expiry_df)
 
-    # ── Implied volatility (at expiry horizon) ──────────────
     atm = compute_atm_iv_at_expiry(options_df, expiry_df)
     mfiv_raw = compute_model_free_iv(options_df, rf_series=rf_series)
     mfiv = compute_mfiv_at_expiry(mfiv_raw, expiry_df) if len(mfiv_raw) > 0 else pd.DataFrame()
 
-    # ── Merge everything on date ───────────────────────────
     master = rv.copy()
     master = master.merge(bv, on="date", how="left")
     master = master.merge(fwd, on="date", how="left")
@@ -523,7 +463,6 @@ def build_feature_table(options_df, spx_df, rf_series=None):
     if len(expiry_df) > 0:
         master = master.merge(expiry_df, on="date", how="left")
 
-    # ── Event flags ────────────────────────────────────────
     master = add_event_flags(master)
 
     master = master.sort_values("date").reset_index(drop=True)
