@@ -77,8 +77,8 @@ python run_logistic_quantile_sweep.py   # Quantile sweep
 
 | Strategy | Trades | Sharpe | Total PnL | Max DD |
 |---|---|---|---|---|
-| VRP (ATM IV, composite RV) | 129 | 0.46 | $15.4M | −77.8% |
-| Var Swap (MFIV) | 112 | 0.95 | $23.4M | −68.3% |
+| VRP (ATM IV, composite RV) | 128 | 0.49 | $15.5M | −80.1% |
+| Var Swap (MFIV) | 113 | 0.81 | $22.0M | −76.2% |
 
 - **Var Swap** outperforms VRP on Sharpe and total PnL.
 - 25% per-trade stop-loss caps individual losses; max drawdown ~78%.

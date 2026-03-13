@@ -307,9 +307,11 @@ def compute_bipower_variation(spx_df, window=22):
 
 def compute_forward_rv_at_expiry(spx_df, expiry_df):
     """
-    Compute the *future* realised variance over the next dte_trade days for each
-    date. Matches the actual holding period to expiry. This is the target for
-    RV forecast models and for ex-post evaluation.
+    Compute the *future* realised variance from entry to expiry for each date.
+
+    Uses the actual expiry date (exdate_trade) to count the real number of
+    trading days between entry and expiry, avoiding the calendar-DTE vs
+    trading-day mismatch (e.g. 7 calendar days Fri→Fri = 5 trading days).
 
     Parameters
     ----------
@@ -321,10 +323,10 @@ def compute_forward_rv_at_expiry(spx_df, expiry_df):
     Returns
     -------
     pd.DataFrame
-        Columns: date, fwd_rv, fwd_rvol (annualised)
+        Columns: date, fwd_rv, fwd_rvol (annualised), fwd_trading_days
     """
     if expiry_df.empty:
-        return pd.DataFrame(columns=["date", "fwd_rv", "fwd_rvol"])
+        return pd.DataFrame(columns=["date", "fwd_rv", "fwd_rvol", "fwd_trading_days"])
 
     df = spx_df[["date", "log_return"]].copy()
     df["date"] = pd.to_datetime(df["date"])
@@ -334,22 +336,33 @@ def compute_forward_rv_at_expiry(spx_df, expiry_df):
 
     results = []
     for _, exp_row in expiry_df.iterrows():
-        date, dte_trade = exp_row["date"], exp_row["dte_trade"]
-        if pd.isna(dte_trade) or dte_trade <= 0:
+        entry = pd.to_datetime(exp_row["date"])
+        exdate = pd.to_datetime(exp_row["exdate_trade"])
+        if pd.isna(exdate) or entry not in date_to_idx:
             continue
-        dte_trade = int(dte_trade)
-        date = pd.to_datetime(date)
-        if date not in date_to_idx:
+
+        entry_idx = date_to_idx[entry]
+
+        # Find actual trading-day index of expiry (or nearest prior trading day)
+        if exdate in date_to_idx:
+            expiry_idx = date_to_idx[exdate]
+        else:
+            candidates = [d for d in date_to_idx if d <= exdate and d > entry]
+            if not candidates:
+                continue
+            expiry_idx = date_to_idx[max(candidates)]
+
+        n_trading_days = expiry_idx - entry_idx
+        if n_trading_days <= 0 or entry_idx + n_trading_days >= len(df):
             continue
-        idx = date_to_idx[date]
-        if idx + dte_trade >= len(df):
-            continue
-        fwd_sum = return_sq[idx + 1: idx + 1 + dte_trade].sum()
-        fwd_rv = fwd_sum * (ANNUALISATION_FACTOR / dte_trade)
+
+        fwd_sum = return_sq[entry_idx + 1: entry_idx + 1 + n_trading_days].sum()
+        fwd_rv = fwd_sum * (ANNUALISATION_FACTOR / n_trading_days)
         results.append({
-            "date": date,
+            "date": entry,
             "fwd_rv": fwd_rv,
             "fwd_rvol": np.sqrt(max(fwd_rv, 0)),
+            "fwd_trading_days": n_trading_days,
         })
 
     out = pd.DataFrame(results)

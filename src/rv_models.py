@@ -286,10 +286,12 @@ def run_all_rv_models(feature_df, train_window=504):
     )
 
     garch_fcast = garch_rolling_forecast(
-        df["log_return"], "GARCH", train_window
+        df["log_return"], "GARCH", train_window,
+        forecast_horizon=RV_FORECAST_HORIZON,
     )
     gjr_fcast = garch_rolling_forecast(
-        df["log_return"], "GJR", train_window
+        df["log_return"], "GJR", train_window,
+        forecast_horizon=RV_FORECAST_HORIZON,
     )
 
     result = pd.DataFrame(index=df.index)

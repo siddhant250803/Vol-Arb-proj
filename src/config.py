@@ -65,7 +65,7 @@ RV_HORIZONS = {
     "weekly": 5,
     "monthly": 22,
 }
-RV_FORECAST_HORIZON = 22
+RV_FORECAST_HORIZON = 5
 ANNUALISATION_FACTOR = 252
 
 HAR_LAGS = [1, 5, 22]

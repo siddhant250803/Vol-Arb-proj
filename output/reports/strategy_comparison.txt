@@ -4,35 +4,35 @@
 
   VRP (ATM IV)
   ────────────────────────────────────────
-    Trades:        129
-    Win Rate:      48.1%
-    Total PnL:     $15,435,523
-    Avg PnL:       $119,655
-    Ann. Return:   67.92%
-    Ann. Vol:      146.10%
-    Sharpe:        0.46
+    Trades:        128
+    Win Rate:      48.4%
+    Total PnL:     $15,499,542
+    Avg PnL:       $121,090
+    Ann. Return:   70.55%
+    Ann. Vol:      145.09%
+    Sharpe:        0.49
     PSR (SR>0):    100.0%
-    Sortino:       3.87
-    Max Drawdown:  -77.76%
-    Alpha (ann):   66.73%
-    Skewness:      1.158
-    Kurtosis:      1.177
+    Sortino:       4.01
+    Max Drawdown:  -80.08%
+    Alpha (ann):   69.40%
+    Skewness:      1.157
+    Kurtosis:      1.217
 
   Var Swap (MFIV)
   ────────────────────────────────────────
-    Trades:        112
-    Win Rate:      50.9%
-    Total PnL:     $23,418,846
-    Avg PnL:       $209,097
-    Ann. Return:   148.37%
+    Trades:        113
+    Win Rate:      49.6%
+    Total PnL:     $22,041,453
+    Avg PnL:       $195,057
+    Ann. Return:   125.43%
     Ann. Vol:      155.76%
-    Sharpe:        0.95
+    Sharpe:        0.81
     PSR (SR>0):    100.0%
-    Sortino:       11.87
-    Max Drawdown:  -68.33%
-    Alpha (ann):   149.09%
-    Skewness:      1.083
-    Kurtosis:      0.689
+    Sortino:       10.15
+    Max Drawdown:  -76.24%
+    Alpha (ann):   126.49%
+    Skewness:      1.142
+    Kurtosis:      0.835
 
 
 =================================================================
@@ -40,9 +40,9 @@
 =================================================================
 
   VRP (ATM IV)
-    FOMC (±7d)       Trades= 40  Win=57%  PnL=$  27,959,871  Sharpe=  0.43  MaxDD=-49.4%
+    FOMC (±7d)       Trades= 39  Win=59%  PnL=$  28,209,416  Sharpe=  0.45  MaxDD=-49.4%
     Non-FOMC         Trades= 96  Win=48%  PnL=$  14,605,318  Sharpe=  0.44  MaxDD=-70.9%
 
   Var Swap (MFIV)
     FOMC (±7d)       Trades= 38  Win=55%  PnL=$  38,308,436  Sharpe=  0.48  MaxDD=-74.3%
-    Non-FOMC         Trades= 80  Win=46%  PnL=$  16,296,961  Sharpe=  0.37  MaxDD=-84.4%
+    Non-FOMC         Trades= 82  Win=48%  PnL=$  17,924,626  Sharpe=  0.46  MaxDD=-79.2%
