@@ -1,0 +1,48 @@
+=================================================================
+  Strategy Comparison — VRP vs Variance Swap
+=================================================================
+
+  VRP (ATM IV)
+  ────────────────────────────────────────
+    Trades:        140
+    Win Rate:      52.1%
+    Total PnL:     $26,044,163
+    Avg PnL:       $186,030
+    Ann. Return:   196.20%
+    Ann. Vol:      178.12%
+    Sharpe:        1.10
+    PSR (SR>0):    100.0%
+    Sortino:       12.83
+    Max Drawdown:  -83.86%
+    Alpha (ann):   194.79%
+    Skewness:      1.426
+    Kurtosis:      3.156
+
+  Var Swap (MFIV)
+  ────────────────────────────────────────
+    Trades:        151
+    Win Rate:      52.3%
+    Total PnL:     $37,209,054
+    Avg PnL:       $246,418
+    Ann. Return:   234.82%
+    Ann. Vol:      187.00%
+    Sharpe:        1.26
+    PSR (SR>0):    100.0%
+    Sortino:       15.47
+    Max Drawdown:  -76.93%
+    Alpha (ann):   235.78%
+    Skewness:      1.231
+    Kurtosis:      1.163
+
+
+=================================================================
+  FOMC Window (±7 days) vs Non-FOMC
+=================================================================
+
+  VRP (ATM IV)
+    FOMC (±7d)       Trades= 45  Win=58%  PnL=$  30,410,039  Sharpe=  0.42  MaxDD=-43.7%
+    Non-FOMC         Trades=100  Win=47%  PnL=$  18,432,384  Sharpe=  0.55  MaxDD=-80.0%
+
+  Var Swap (MFIV)
+    FOMC (±7d)       Trades= 50  Win=50%  PnL=$  45,578,046  Sharpe=  0.37  MaxDD=-85.0%
+    Non-FOMC         Trades=106  Win=50%  PnL=$  30,424,380  Sharpe=  0.76  MaxDD=-91.0%

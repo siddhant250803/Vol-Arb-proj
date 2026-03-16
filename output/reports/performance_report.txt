@@ -1,0 +1,65 @@
+============================================================
+  IV vs Forecast RV — Performance Report
+  (Returns/Sharpe on full calendar; flat days = 0)
+============================================================
+
+RETURN METRICS
+  annualised_return             : 1.9620
+  annualised_volatility         : 1.7812
+  sharpe_ratio                  : 1.1015
+  sortino_ratio                 : 12.8348
+  calmar_ratio                  : 2.3396
+  probabilistic_sharpe_ratio (SR>0): 1.0000
+
+DRAWDOWN
+  max_drawdown                  : -0.8386
+
+DISTRIBUTION & HIGHER MOMENTS
+  mean_daily                    : 0.186030
+  std_daily                     : 0.514159
+  skewness                      : 1.425830
+  kurtosis                      : 3.155903
+  min_daily                     : -0.249972
+  max_daily                     : 2.669712
+  pct_positive                  : 0.521429
+  var_95                        : -0.249926
+  cvar_95                       : -0.249957
+  skew_se                       : 0.207020
+  skew_significant              : True
+  fat_tails                     : True
+
+TRADE STATISTICS (gain per trade, holding period, frequency)
+  n_trades                      : 140
+  win_rate                      : 0.5214
+  avg_pnl                       : 186029.7361
+  median_pnl                    : 50101.3343
+  std_pnl                       : 514159.0907
+  total_pnl                     : 26044163.0602
+  avg_winner                    : 572424.0932
+  avg_loser                     : -234967.1007
+  profit_factor                 : 2.6544
+  max_win                       : 2669711.5115
+  max_loss                      : -249972.1655
+  avg_holding_days              : 2.6929
+  median_holding_days           : 3.0000
+  min_holding_days              : 1
+  max_holding_days              : 5
+  trades_per_year               : 11.9782
+  avg_iv_rv_spread              : -0.0558
+
+BENCHMARK (buy-and-hold SPX)
+  benchmark_sharpe              : 0.6384
+  benchmark_ann_return          : 0.1035
+  benchmark_max_dd              : -0.3392
+  strategy_sharpe               : 1.1463
+  strategy_ann_return           : 2.0371
+  strategy_max_dd               : -0.8386
+  correlation                   : 0.0129
+  beta                          : 0.1357
+  alpha_ann                     : 2.0231
+  information_ratio             : 1.0232
+
+CAPACITY
+  Illustrative: assumes SPX options ADV ~$50B; deploy up to 1.0% of ADV. Not data-driven.
+  capacity_usd                  : 500000000
+  scale_factor                  : 500
