@@ -387,7 +387,7 @@ def add_event_flags(df, date_col="date"):
     -------
     pd.DataFrame
         Same DataFrame with added columns:
-        fomc_window (1 if within ±1 day of FOMC date)
+        fomc_window (1 if within ±7 days of FOMC date)
     """
     fomc = pd.to_datetime(FOMC_DATES)
     out = df.copy()

@@ -23,12 +23,12 @@ sns.set_palette(PLOT_PALETTE)
 
 
 def _save(fig, name):
-    """Save a figure to the output directory."""
+    """Save a figure to the output directory and close it."""
     FIGURES_DIR.mkdir(parents=True, exist_ok=True)
     path = FIGURES_DIR / f"{name}.png"
     fig.savefig(path, dpi=FIGURE_DPI, bbox_inches="tight")
     print(f"  [viz] Saved → {path.relative_to(FIGURES_DIR.parent.parent)}")
-    return fig
+    plt.close(fig)
 
 
 def plot_spx_price_and_returns(spx_df):
@@ -95,7 +95,7 @@ def plot_options_summary(options_df):
 
 def plot_iv_vs_rv(feature_df):
     """
-    Time-series overlay of ATM IV (30d) vs realised volatility.
+    Time-series overlay of ATM IV at expiry vs realised volatility.
     """
     fig, ax = plt.subplots(figsize=FIGURE_SIZE)
 
@@ -267,7 +267,7 @@ def plot_trade_analysis(trades_df):
     axes[0, 0].set_title("Trade PnL Distribution")
     axes[0, 0].set_xlabel("Net PnL ($)")
 
-    for direction, color, label in [(-1, PLOT_POSITIVE, "Short Vol"), (1, PLOT_PRIMARY, "Long Vol")]:
+    for direction, color, label in [(-1, PLOT_PRIMARY, "Long Vol"), (1, PLOT_POSITIVE, "Short Vol")]:
         sub = trades_df[trades_df["direction"] == direction]
         if len(sub) > 0:
             axes[0, 1].hist(sub["net_pnl"], bins=20, color=color,

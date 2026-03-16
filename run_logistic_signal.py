@@ -14,7 +14,7 @@ from src.data_loader import load_options_raw, extract_spx_prices
 from src.signals import compute_vrp_signal
 from src.backtest import run_backtest, trades_to_dataframe
 from src.performance import full_performance_report
-from logistic import run_logistic_expected_vol_oos
+from src.logistic import run_logistic_expected_vol_oos
 
 
 def main() -> None:

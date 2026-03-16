@@ -25,7 +25,7 @@ class Trade:
     """Represents one completed straddle trade."""
     entry_date: pd.Timestamp
     exit_date: pd.Timestamp
-    direction: int              # +1 = long vol, −1 = short vol
+    direction: int              # +1 = short vol, −1 = long vol
     n_contracts: int            # number of straddle contracts traded
     entry_iv: float
     realised_vol: float         # actual RV over holding period
@@ -249,7 +249,7 @@ def run_backtest(signal_df, spx_df, hold_days=None, cost_bps=None,
         row = merged.iloc[i]
 
         if not in_position and row["signal"] != 0:
-            # ── ENTRY ──────────────────────────────────────
+            # Entry
             entry_date = row["date"]
             exdate = row.get("exdate_trade", None)
 
@@ -294,7 +294,7 @@ def run_backtest(signal_df, spx_df, hold_days=None, cost_bps=None,
             # Time to expiry at entry (for hedge/MTM)
             T_full = entry_T
 
-            # ── Stop-loss: exit when loss reaches 25% of this trade's value ─
+            # Stop-loss: exit when loss reaches 25% of this trade's value
             # Trade value = premium deployed (straddle_per_share × scale), not portfolio notional
             # MTM must use *current* vol (realized vol so far), not entry_iv, so when vol spikes
             # we see the true loss and the stop triggers (otherwise e.g. Volmageddon never stops).

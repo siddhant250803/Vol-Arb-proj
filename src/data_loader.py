@@ -215,9 +215,9 @@ def clean_options(df, min_dte=None, max_dte=None):
 
 def extract_spx_prices(df):
     """
-    Download daily SPX closing prices from Yahoo Finance (^GSPC) covering
-    the date range of the options data, with a 1-year buffer on each side
-    for rolling-window model burn-in.
+    Download daily SPX closing prices from Yahoo Finance (^GSPC). Requires
+    network access. Covers the options date range with a 1-year buffer on
+    each side for rolling-window model burn-in.
 
     Parameters
     ----------

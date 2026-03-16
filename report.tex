@@ -16,7 +16,7 @@
 \usepackage{setspace}
 \usepackage{parskip}
 
-\graphicspath{{report/figures/}}
+\graphicspath{{output/figures/}}
 
 \hypersetup{
     colorlinks=true,
@@ -329,7 +329,7 @@ Table~\ref{tab:comparison} and Figure~\ref{fig:comparison} present a head-to-hea
 \label{tab:comparison}
 \begin{tabular}{@{}lrrr@{}}
 \toprule
-\textbf{Metric} & \textbf{VRP (ATM IV)} & \textbf{Var Swap (MFIV)} & \textbf{Logistic ($K{=}6$)} \\
+\textbf{Metric} & \textbf{VRP (ATM IV)} & \textbf{Var Swap (MFIV)} & \textbf{Logistic ($K{=}8$)} \\
 \midrule
 Trades           & 140 & 151 & 135 \\
 Win Rate         & 52.1\% & 52.3\% & 54.1\% \\
@@ -551,7 +551,7 @@ We assess whether the observed Sharpe ratio is statistically distinguishable fro
     \item $P(\text{Sharpe} > 0) = 100.0\%$
 \end{itemize}
 
-\noindent The entire 95\% confidence interval lies above zero, and the probability of a positive Sharpe exceeds 100.0\%, providing strong statistical evidence that the observed performance is not attributable to sampling variation alone (Figure~\ref{fig:bootstrap}).
+\noindent The entire 95\% confidence interval lies above zero, and the probability of a positive Sharpe is 100.0\%, providing strong statistical evidence that the observed performance is not attributable to sampling variation alone (Figure~\ref{fig:bootstrap}).
 
 \begin{figure}[H]
     \centering
