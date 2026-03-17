@@ -50,7 +50,6 @@ def load_options_raw(filepath=None, nrows=None):
             filepath = gz_path
     print(f"[data_loader] Loading options from {filepath.name} ...")
 
-    # Only load the columns we need (saves memory on 5M+ row files)
     usecols = None
     try:
         header = pd.read_csv(filepath, nrows=0).columns.tolist()
@@ -184,7 +183,6 @@ def clean_options(df, min_dte=None, max_dte=None):
     if COL["spot"] not in out.columns:
         out = _derive_spot_price(out)
 
-    # Drop rows where spot could not be determined
     out = out.dropna(subset=[COL["spot"]])
 
     out["strike"] = out[COL["strike_raw"]] / STRIKE_DIVISOR
@@ -338,8 +336,6 @@ def load_all_data(nrows=None):
     raw = load_options_raw(nrows=nrows)
     spx = extract_spx_prices(raw)
 
-    # Merge yfinance SPX closes into raw options so clean_options
-    # uses real closing prices for moneyness instead of deriving from strikes.
     spx_map = spx[["date", "spx_close"]].rename(columns={"spx_close": COL["spot"]})
     raw = raw.drop(columns=[COL["spot"]], errors="ignore")
     raw = raw.merge(spx_map, on="date", how="left")

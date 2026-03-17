@@ -303,7 +303,6 @@ def param_sensitivity(features_df, spx_df):
     hold_days = [1, 2, 3, 4, 5]  # weeklies: never hold past Friday expiry (max 5 trading days)
     costs = [0, 3, 5, 10, 15, 20]
 
-    # F1: Threshold sensitivity (hold & cost at baseline)
     _log("\n  F1. Z-score Threshold Sensitivity")
     _log(f"  (hold={POSITION_HOLD_DAYS}d, cost={TRANSACTION_COST_BPS}bps)")
     thresh_results = []
@@ -319,7 +318,6 @@ def param_sensitivity(features_df, spx_df):
              f"Sharpe={m.get('sharpe', np.nan):>6.2f}  "
              f"PnL=${m['total_pnl']:>10,.0f}")
 
-    # F2: Holding period sensitivity (threshold & cost at baseline)
     _log(f"\n  F2. Holding Period Sensitivity")
     _log(f"  (threshold={SIGNAL_ZSCORE_ENTRY}, cost={TRANSACTION_COST_BPS}bps)")
     hold_results = []
@@ -335,7 +333,6 @@ def param_sensitivity(features_df, spx_df):
              f"Sharpe={m.get('sharpe', np.nan):>6.2f}  "
              f"PnL=${m['total_pnl']:>10,.0f}")
 
-    # F3: Transaction cost sensitivity
     _log(f"\n  F3. Transaction Cost Sensitivity")
     _log(f"  (threshold={SIGNAL_ZSCORE_ENTRY}, hold={POSITION_HOLD_DAYS}d)")
     cost_results = []
@@ -444,7 +441,6 @@ def plot_oos_walkforward(oos_results, split_date, wf_results, spx_df=None):
     fig = plt.figure(figsize=(20, 10))
     gs = gridspec.GridSpec(2, 2, hspace=0.35, wspace=0.3)
 
-    # OOS cumulative PnL (strategy + benchmark, via cumsum to avoid cumprod blowup)
     ax = fig.add_subplot(gs[0, 0])
     for label, color in [("IN-SAMPLE", PLOT_SECONDARY), ("OUT-OF-SAMPLE", PLOT_ACCENT)]:
         r = oos_results.get(label, {})
@@ -467,7 +463,6 @@ def plot_oos_walkforward(oos_results, split_date, wf_results, spx_df=None):
     ax.legend(fontsize=8)
     ax.grid(True, alpha=0.3)
 
-    # OOS metrics: Sharpe, Sortino, PSR
     ax = fig.add_subplot(gs[0, 1])
     labels_oos = ["IN-SAMPLE", "OUT-OF-SAMPLE"]
     metrics_to_show = ["sharpe", "sortino", "psr"]
@@ -485,7 +480,6 @@ def plot_oos_walkforward(oos_results, split_date, wf_results, spx_df=None):
     ax.axhline(0, color=PLOT_NEUTRAL, lw=0.5)
     ax.grid(True, alpha=0.3, axis="y")
 
-    # Walk-forward Sharpe by window
     ax = fig.add_subplot(gs[1, 0])
     wf_sharpes = [r.get("sharpe", 0) for r in wf_results]
     wf_labels = [f"W{r['window']}\n{r['start'].strftime('%Y-%m')}" for r in wf_results]
@@ -495,7 +489,6 @@ def plot_oos_walkforward(oos_results, split_date, wf_results, spx_df=None):
     ax.axhline(0, color=PLOT_NEUTRAL, lw=0.5)
     ax.grid(True, alpha=0.3, axis="y")
 
-    # Walk-forward cumulative PnL overlaid (via cumsum to avoid cumprod blowup)
     ax = fig.add_subplot(gs[1, 1])
     cmap = plt.cm.viridis(np.linspace(0.2, 0.9, len(wf_results)))
     for r, c in zip(wf_results, cmap):
@@ -522,7 +515,6 @@ def plot_stress_periods(stress_results, spx_df=None):
     names = [r["period"] for r in stress_results]
     x = np.arange(len(names))
 
-    # Sharpe
     ax = axes[0]
     sharpes = [r.get("sharpe", 0) for r in stress_results]
     colors = [PLOT_POSITIVE if s > 0 else PLOT_NEGATIVE for s in sharpes]
@@ -533,7 +525,6 @@ def plot_stress_periods(stress_results, spx_df=None):
     ax.axvline(0, color=PLOT_NEUTRAL, lw=0.5)
     ax.grid(True, alpha=0.3, axis="x")
 
-    # Total PnL
     ax = axes[1]
     pnls = [r.get("total_pnl", 0) / 1e6 for r in stress_results]
     colors = [PLOT_POSITIVE if p > 0 else PLOT_NEGATIVE for p in pnls]
@@ -544,7 +535,6 @@ def plot_stress_periods(stress_results, spx_df=None):
     ax.axvline(0, color=PLOT_NEUTRAL, lw=0.5)
     ax.grid(True, alpha=0.3, axis="x")
 
-    # Max Drawdown
     ax = axes[2]
     dds = [r.get("max_dd", 0) * 100 for r in stress_results]
     ax.barh(x, dds, color=PLOT_COLORS["600"], alpha=0.6, edgecolor="none")
@@ -553,7 +543,6 @@ def plot_stress_periods(stress_results, spx_df=None):
     ax.set_title("Max Drawdown (%)", fontweight="bold")
     ax.grid(True, alpha=0.3, axis="x")
 
-    # Benchmark (SPX) return during each stress period
     if n_cols == 4 and spx_df is not None:
         ax = axes[3]
         bench_rets = []
@@ -617,7 +606,6 @@ def plot_regime_analysis(regime_results):
 def plot_param_sensitivity(thresh_res, hold_res, cost_res):
     fig, axes = plt.subplots(1, 3, figsize=(20, 6))
 
-    # Threshold (Sharpe + PSR on secondary)
     ax = axes[0]
     thrs = [r["threshold"] for r in thresh_res]
     shs = [r.get("sharpe", 0) for r in thresh_res]
@@ -636,7 +624,6 @@ def plot_param_sensitivity(thresh_res, hold_res, cost_res):
     ax2.set_ylim(0, 105)
     ax.grid(True, alpha=0.3, axis="y")
 
-    # Holding period (max 5d for weeklies; backtest exits at expiry)
     ax = axes[1]
     hds = [r["hold_days"] for r in hold_res]
     shs = [r.get("sharpe", 0) for r in hold_res]
@@ -651,7 +638,6 @@ def plot_param_sensitivity(thresh_res, hold_res, cost_res):
     ax2.set_ylabel("Total PnL ($M)", color=PLOT_POSITIVE)
     ax.grid(True, alpha=0.3, axis="y")
 
-    # Transaction cost
     ax = axes[2]
     cs = [r["cost_bps"] for r in cost_res]
     shs = [r.get("sharpe", 0) for r in cost_res]
@@ -705,7 +691,6 @@ def plot_yearly(yearly_results, spx_df=None):
     x = np.arange(len(years))
     w = 0.35
 
-    # Sharpe by year (optionally vs benchmark)
     ax = axes[0, 0]
     shs = [r.get("sharpe", 0) for r in yearly_results]
     colors = [PLOT_POSITIVE if s > 0 else PLOT_NEGATIVE for s in shs]
@@ -729,7 +714,6 @@ def plot_yearly(yearly_results, spx_df=None):
     ax.legend(fontsize=8)
     ax.grid(True, alpha=0.3, axis="y")
 
-    # Total PnL by year
     ax = axes[0, 1]
     pnls = [r.get("total_pnl", 0) / 1e6 for r in yearly_results]
     colors = [PLOT_POSITIVE if p > 0 else PLOT_NEGATIVE for p in pnls]
@@ -741,7 +725,6 @@ def plot_yearly(yearly_results, spx_df=None):
     ax.yaxis.set_major_formatter(mticker.FuncFormatter(lambda x, _: f"${x:.2f}M"))
     ax.grid(True, alpha=0.3, axis="y")
 
-    # Win rate by year
     ax = axes[1, 0]
     wrs = [r.get("win_rate", 0) * 100 for r in yearly_results]
     ax.bar(x, wrs, color=PLOT_SECONDARY, alpha=0.7, edgecolor="none")
@@ -752,7 +735,6 @@ def plot_yearly(yearly_results, spx_df=None):
     ax.set_ylim(0, 100)
     ax.grid(True, alpha=0.3, axis="y")
 
-    # Max drawdown by year
     ax = axes[1, 1]
     dds = [r.get("max_dd", 0) * 100 for r in yearly_results]
     ax.bar(x, dds, color=PLOT_COLORS["600"], alpha=0.6, edgecolor="none")
@@ -780,7 +762,6 @@ def main():
     signal_df = compute_vrp_signal(augmented)
     spx_df = data["spx"]
 
-    # Full-sample backtest for baseline
     _log("\nFull-sample baseline backtest ...")
     full_trades, full_pnl = run_backtest(signal_df, spx_df)
     full_m = _compute_metrics(full_trades, full_pnl, spx_df)

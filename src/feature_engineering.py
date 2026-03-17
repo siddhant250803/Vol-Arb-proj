@@ -343,7 +343,6 @@ def compute_forward_rv_at_expiry(spx_df, expiry_df):
 
         entry_idx = date_to_idx[entry]
 
-        # Find actual trading-day index of expiry (or nearest prior trading day)
         if exdate in date_to_idx:
             expiry_idx = date_to_idx[exdate]
         else:

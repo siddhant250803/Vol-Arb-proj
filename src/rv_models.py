@@ -233,7 +233,6 @@ def garch_rolling_forecast(
     n = len(returns)
     forecasts = {}
 
-    # Re-fit every 5 days for speed (use last model in between)
     refit_interval = 5
 
     for t in range(train_window, n, refit_interval):

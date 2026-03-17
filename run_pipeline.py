@@ -142,7 +142,6 @@ def stage6_performance(trades_df, pnl_df, signals, data):
     if not pnl_df.empty and len(pnl_df) > 10:
         report = full_performance_report(pnl_df, trades_df, spx_df=data.get("spx"))
 
-        # Sub-period analysis
         n_periods = min(4, max(2, len(pnl_df) // 50))
         subperiod_df = robustness_by_subperiod(pnl_df, n_periods=n_periods)
         print("\n  Sub-period Sharpe ratios:")
@@ -209,14 +208,12 @@ def stage8_export(data, features, signals, trades_df, pnl_df, report):
     DATA_OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     REPORTS_DIR.mkdir(parents=True, exist_ok=True)
 
-    # Feature table
     features.to_csv(DATA_OUTPUT_DIR / "feature_table.csv", index=False)
     print(f"  Saved feature_table.csv ({len(features)} rows)")
 
     signals.to_csv(DATA_OUTPUT_DIR / "signal_table.csv", index=False)
     print(f"  Saved signal_table.csv ({len(signals)} rows)")
 
-    # Trades and trade log (all buys/sells with entry/exit prices and PnL)
     if not trades_df.empty:
         trades_df.to_csv(DATA_OUTPUT_DIR / "trades.csv", index=False)
         print(f"  Saved trades.csv ({len(trades_df)} trades)")

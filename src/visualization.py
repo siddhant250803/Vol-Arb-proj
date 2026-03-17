@@ -202,7 +202,6 @@ def plot_vrp_signal(signal_df):
     fig, axes = plt.subplots(3, 1, figsize=(14, 10), sharex=True,
                              gridspec_kw={"height_ratios": [1, 1.2, 0.6]})
 
-    # VRP level
     axes[0].plot(signal_df["date"], signal_df["vrp"], lw=0.8, color=PLOT_SECONDARY)
     axes[0].axhline(0, color=PLOT_NEUTRAL, lw=0.5, ls="--")
     axes[0].set_ylabel("VRP (vol pts)")
@@ -210,7 +209,6 @@ def plot_vrp_signal(signal_df):
     _fmt_pct(axes[0], decimals=0)
     _fmt_date(axes[0])
 
-    # Z-score
     axes[1].plot(signal_df["date"], signal_df["vrp_zscore"], lw=0.8, color=PLOT_COLORS["800"])
     axes[1].axhline(1.0, color=PLOT_PRIMARY, ls="--", lw=0.8, label="Entry threshold (±1σ)")
     axes[1].axhline(-1.0, color=PLOT_POSITIVE, ls="--", lw=0.8)
@@ -225,7 +223,6 @@ def plot_vrp_signal(signal_df):
     axes[1].legend(loc="upper right", fontsize=9)
     _fmt_date(axes[1])
 
-    # Signal
     axes[2].bar(signal_df["date"], signal_df["signal"], width=2,
                 color=signal_df["signal"].map({1: PLOT_PRIMARY, -1: PLOT_POSITIVE, 0: PLOT_NEUTRAL}))
     axes[2].set_ylabel("Signal")
@@ -272,7 +269,6 @@ def plot_skew_and_term_signals(signal_df):
 
 def plot_cumulative_pnl(pnl_df):
     """Cumulative PnL and drawdown chart."""
-    # Recompute via cumsum of daily PnL (safe against cumprod blowup from outlier trades)
     pnl_df = pnl_df.copy()
     pnl_df["cumulative_pnl"] = pnl_df["daily_pnl"].fillna(0).cumsum()
 
@@ -290,8 +286,6 @@ def plot_cumulative_pnl(pnl_df):
     _fmt_dollar(axes[0])
     _fmt_date(axes[0])
 
-    # Drawdown: clip daily_return to ±50% to prevent any single outlier
-    # trade from blowing up the cumprod equity curve
     r_clipped = pnl_df["daily_return"].fillna(0).clip(-0.5, 0.5)
     cum_ret = (1 + r_clipped).cumprod()
     peak = cum_ret.cummax()
@@ -479,7 +473,6 @@ def plot_summary_dashboard(spx_df, feature_df, signal_df, pnl_df, report):
     _fmt_dollar(ax4)
     _fmt_date(ax4)
 
-    # Panel 5: Performance metrics text
     ax5 = fig.add_subplot(gs[1, 2])
     ax5.axis("off")
     rm = report["return_metrics"]
@@ -501,7 +494,6 @@ def plot_summary_dashboard(spx_df, feature_df, signal_df, pnl_df, report):
              bbox=dict(boxstyle="round", facecolor=PLOT_LIGHT, alpha=0.7))
     ax5.set_title("Key Metrics", fontsize=11, fontweight="bold")
 
-    # Panel 6: Drawdown (clip daily_return to ±50% to prevent outlier cumprod blowup)
     ax6 = fig.add_subplot(gs[2, :])
     if not pnl_df.empty:
         r_clipped_d = pnl_df["daily_return"].fillna(0).clip(-0.5, 0.5)

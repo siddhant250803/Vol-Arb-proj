@@ -171,7 +171,7 @@ def higher_moments_with_significance(daily_returns):
         ]}
     skew = r.skew()
     kurt = r.kurtosis()  # pandas: Fisher definition, 0 for normal
-    excess_kurt = kurt  # already excess
+    excess_kurt = kurt
 
     skew_se = np.sqrt(6.0 / n)
     kurt_se = np.sqrt(24.0 / n)
@@ -281,12 +281,10 @@ def benchmark_comparison(strategy_daily_returns, benchmark_daily_returns):
     if b_ret.empty:
         return {}
 
-    # Reindex strategy to benchmark calendar; fill missing days with 0 (flat)
     s_ret = _to_series(strategy_daily_returns).reindex(b_ret.index, fill_value=0.0).dropna()
     if s_ret.empty:
         return {}
 
-    # Align for empyrical alpha_beta (same index)
     common = s_ret.index.intersection(b_ret.index)
     s_aligned = s_ret.loc[common].fillna(0.0)
     b_aligned = b_ret.loc[common].dropna()
@@ -354,7 +352,6 @@ def trade_statistics(trades_df):
     holding = trades_df["holding_days"]
 
     n = len(trades_df)
-    # Trading frequency: trades per year (use span of trades if available)
     trades_per_year = np.nan
     if "entry_date" in trades_df.columns and "exit_date" in trades_df.columns and n >= 1:
         try:
@@ -368,7 +365,6 @@ def trade_statistics(trades_df):
         except Exception:
             trades_per_year = np.nan
 
-    # Guard against NaN in holding_days
     holding_clean = holding.dropna()
     avg_hold = holding_clean.mean() if len(holding_clean) > 0 else np.nan
     med_hold = holding_clean.median() if len(holding_clean) > 0 else np.nan
@@ -638,7 +634,6 @@ def full_performance_report(daily_pnl_df, trades_df, spx_df=None, notional=NOTIO
     print(f"  Calmar Ratio:          {rm['calmar_ratio']:>10.2f}")
     print(f"  Max Drawdown:          {report['drawdown']['max_drawdown']:>10.2%}")
 
-    # Probabilistic Sharpe Ratio
     psr = report["probabilistic_sharpe_ratio"]
     print(f"  Prob. Sharpe (SR>0):   {psr:>10.2%}")
 
@@ -655,7 +650,6 @@ def full_performance_report(daily_pnl_df, trades_df, spx_df=None, notional=NOTIO
         print(f"  Avg holding:   {ts.get('avg_holding_days', np.nan):.1f} days  "
               f"(min={ts.get('min_holding_days', np.nan):.0f}, max={ts.get('max_holding_days', np.nan):.0f})")
 
-    # Higher moments
     hm = report["higher_moments"]
     print(f"\n  --- Higher moments ---")
     print(f"  Skewness:      {hm['skewness']:.3f}  (SE={hm['skew_se']:.3f})  "
@@ -667,7 +661,6 @@ def full_performance_report(daily_pnl_df, trades_df, spx_df=None, notional=NOTIO
     print(f"  VaR (95%):    {ds['var_95']:.4f}")
     print(f"  CVaR(95%):    {ds['cvar_95']:.4f}")
 
-    # Benchmark
     if report["benchmark"]:
         b = report["benchmark"]
         print(f"\n  --- Benchmark (buy-and-hold SPX) ---")
@@ -681,7 +674,6 @@ def full_performance_report(daily_pnl_df, trades_df, spx_df=None, notional=NOTIO
         print(f"  Alpha (ann):       {alpha_str}")
         print(f"  Info Ratio:        {b['information_ratio']:.3f}")
 
-    # Capacity
     cap = report["capacity"]
     print(f"\n  --- Capacity ---")
     print(f"  {cap['note']}")

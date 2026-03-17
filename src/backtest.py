@@ -116,12 +116,9 @@ def simulate_delta_hedge(prices, sigma, T_years, direction):
         )
         straddle_delta = 2 * sp_norm.cdf(d1) - 1.0
 
-        # Net delta exposure (if long straddle, we are long delta)
         target_delta = direction * straddle_delta
-        # Hedge: go short target_delta shares of underlying
         hedge_pos = -target_delta
 
-        # PnL from previous hedge position
         price_change = prices[i + 1] - prices[i]
         hedge_pnl += prev_delta * price_change
 
@@ -230,7 +227,6 @@ def run_backtest(signal_df, spx_df, hold_days=None, cost_bps=None,
         stop_loss_pct = STOP_LOSS_PCT
     multiplier = CONTRACT_MULTIPLIER
 
-    # Merge SPX prices with signals
     merged = signal_df.merge(
         spx_df[["date", "spx_close"]],
         on="date",
@@ -240,7 +236,6 @@ def run_backtest(signal_df, spx_df, hold_days=None, cost_bps=None,
     n = len(merged)
     trades: List[Trade] = []
 
-    # Track open position
     in_position = False
     entry_idx = 0
 
@@ -249,7 +244,6 @@ def run_backtest(signal_df, spx_df, hold_days=None, cost_bps=None,
         row = merged.iloc[i]
 
         if not in_position and row["signal"] != 0:
-            # Entry
             entry_date = row["date"]
             exdate = row.get("exdate_trade", None)
 
@@ -271,7 +265,6 @@ def run_backtest(signal_df, spx_df, hold_days=None, cost_bps=None,
             entry_iv = row["iv"]
             entry_price = row["spx_close"]
 
-            # Straddle premium: use actual time to expiry when known
             if entry_exdate is not None:
                 entry_T = (entry_exdate - entry_date).days / 365.0
             else:
@@ -280,7 +273,6 @@ def run_backtest(signal_df, spx_df, hold_days=None, cost_bps=None,
                 entry_price, entry_price, entry_T, entry_iv
             )
 
-            # Position sizing: how many contracts can we trade?
             cost_per_contract = straddle_per_share * multiplier
             # Guard against near-zero straddle prices (bad data) creating enormous positions.
             # Cap at notional / $1 per contract floor = notional contracts max.
@@ -296,7 +288,6 @@ def run_backtest(signal_df, spx_df, hold_days=None, cost_bps=None,
             days_held = i - entry_idx
             price_path = merged.iloc[entry_idx: i + 1]["spx_close"].values
             scale = n_contracts * multiplier
-            # Time to expiry at entry (for hedge/MTM)
             T_full = entry_T
 
             # Stop-loss: exit when loss reaches 25% of this trade's value
@@ -304,7 +295,6 @@ def run_backtest(signal_df, spx_df, hold_days=None, cost_bps=None,
             # MTM must use *current* vol (realized vol so far), not entry_iv, so when vol spikes
             # we see the true loss and the stop triggers (otherwise e.g. Volmageddon never stops).
             trade_value = straddle_per_share * scale
-            # Exit at expiry, horizon, or end of data
             at_expiry = (
                 entry_exdate is not None
                 and row["date"] >= entry_exdate
@@ -338,17 +328,13 @@ def run_backtest(signal_df, spx_df, hold_days=None, cost_bps=None,
                         exit_now = True
 
             if exit_now:
-                # Always mark PnL to closing price: expiry = end-of-week close, early = close on exit day
-                exit_price = row["spx_close"]  # closing price on exit date
+                exit_price = row["spx_close"]
                 exit_date = row["date"]
 
-                # Early exit (mid-week): mark to closing price at point of exit; strike = entry strike
-                # Normal exit (expiry): mark to closing price at end of week when option expires
                 is_early_exit = (entry_exdate is not None and not at_expiry) or (
                     entry_exdate is None and days_held < this_hold and i < n - 1
                 )
                 if is_early_exit:
-                    # Mid-week exit: value straddle at (spot = closing price at exit, strike = entry_price)
                     tau_remaining = T_full - days_held / TRADING_DAYS_PER_YEAR
                     tau_remaining = max(tau_remaining, 1e-6)
                     if len(price_path) >= 2:
@@ -372,7 +358,6 @@ def run_backtest(signal_df, spx_df, hold_days=None, cost_bps=None,
                     )
                     hedge_pnl = hedge_pnl_per * scale
                 else:
-                    # Expiry: mark to closing price at end of week when option expires (strike = entry)
                     call_payoff = max(exit_price - entry_price, 0)
                     put_payoff = max(entry_price - exit_price, 0)
                     straddle_payoff = call_payoff + put_payoff
@@ -386,11 +371,9 @@ def run_backtest(signal_df, spx_df, hold_days=None, cost_bps=None,
                     )
                     hedge_pnl = hedge_pnl_per * scale
 
-                # Transaction costs (on full notional deployed)
                 notional_deployed = straddle_per_share * scale
                 txn = (cost_bps / 10000.0) * notional_deployed * 2  # entry + exit
 
-                # Realised vol over holding period
                 if len(price_path) > 1:
                     log_rets = np.diff(np.log(price_path))
                     rv = np.sqrt(
@@ -401,7 +384,6 @@ def run_backtest(signal_df, spx_df, hold_days=None, cost_bps=None,
                     rv = 0.0
 
                 net = option_pnl + hedge_pnl - txn
-                # Cap realized loss at stop_loss_pct of trade value (early exits AND expiry)
                 if stop_loss_pct > 0 and net < -stop_loss_pct * notional_deployed:
                     net = -stop_loss_pct * notional_deployed
 

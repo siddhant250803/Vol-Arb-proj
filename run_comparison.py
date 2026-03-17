@@ -154,14 +154,12 @@ def plot_strategy_comparison(results, pnl_dict, spx_df=None):
 
     fig, axes = plt.subplots(2, 3, figsize=(20, 11))
 
-    # 1. Cumulative PnL (strategies + benchmark)
     ax = axes[0, 0]
     for name in strategies:
         if name in pnl_dict and not pnl_dict[name].empty:
             pdf = pnl_dict[name]
             cum_pnl = pdf["daily_pnl"].fillna(0).cumsum()
             ax.plot(pdf["date"], cum_pnl / 1e6, label=name, lw=1.2)
-    # Add buy-and-hold SPX benchmark ($1M notional)
     if spx_df is not None and not spx_df.empty:
         all_dates = pd.concat([pnl_dict[n]["date"] for n in strategies if n in pnl_dict and not pnl_dict[n].empty], ignore_index=True)
         start, end = all_dates.min(), all_dates.max()
@@ -173,7 +171,7 @@ def plot_strategy_comparison(results, pnl_dict, spx_df=None):
             spx = spx.sort_values("date")
             ret = spx["spx_close"].pct_change().fillna(0)
             cum_ret = (1 + ret).cumprod()
-            bench_pnl_m = (cum_ret.values - 1) * 1e6 / 1e6  # PnL in $M from $1M
+            bench_pnl_m = (cum_ret.values - 1) * 1e6 / 1e6
             ax.plot(spx["date"], bench_pnl_m, label="Buy & Hold SPX", lw=1, color=PLOT_NEUTRAL, ls="--")
     ax.set_title("Cumulative PnL ($M) vs Buy & Hold SPX", fontsize=12, fontweight="bold")
     ax.set_ylabel("$ Millions")
@@ -183,7 +181,6 @@ def plot_strategy_comparison(results, pnl_dict, spx_df=None):
     ax.grid(True, alpha=0.3)
     ax.xaxis.set_major_locator(mticker.MaxNLocator(integer=True, nbins=6))
 
-    # 2. Sharpe ratios (strategies only; benchmark in table)
     ax = axes[0, 1]
     sharpes = [r["sharpe"] for r in results if r["n_trades"] > 0]
     colors = [PLOT_POSITIVE if s > 0 else PLOT_NEGATIVE for s in sharpes]
@@ -192,7 +189,6 @@ def plot_strategy_comparison(results, pnl_dict, spx_df=None):
     ax.axhline(0, color=PLOT_NEUTRAL, lw=0.5)
     ax.grid(True, alpha=0.3, axis="y")
 
-    # 3. Win Rate & # Trades
     ax = axes[0, 2]
     n_trades = [r["n_trades"] for r in results if r["n_trades"] > 0]
     win_rates = [r["win_rate"] * 100 for r in results if r["n_trades"] > 0]
@@ -213,7 +209,6 @@ def plot_strategy_comparison(results, pnl_dict, spx_df=None):
     ax2.legend(loc="upper right", fontsize=8)
     ax.grid(True, alpha=0.3, axis="y")
 
-    # 4. Drawdown comparison (clip daily_return to ±50% to prevent outlier cumprod blowup)
     ax = axes[1, 0]
     for name in strategies:
         if name in pnl_dict and not pnl_dict[name].empty:
@@ -228,7 +223,6 @@ def plot_strategy_comparison(results, pnl_dict, spx_df=None):
     ax.legend(fontsize=9)
     ax.grid(True, alpha=0.3)
 
-    # 5. Return distribution
     ax = axes[1, 1]
     for name in strategies:
         if name in pnl_dict and not pnl_dict[name].empty:
@@ -239,7 +233,6 @@ def plot_strategy_comparison(results, pnl_dict, spx_df=None):
     ax.legend(fontsize=9)
     ax.grid(True, alpha=0.3)
 
-    # 6. Summary table (incl. PSR, Alpha vs benchmark)
     ax = axes[1, 2]
     ax.axis("off")
     table_data = []
