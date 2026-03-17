@@ -213,14 +213,12 @@ def plot_strategy_comparison(results, pnl_dict, spx_df=None):
     ax2.legend(loc="upper right", fontsize=8)
     ax.grid(True, alpha=0.3, axis="y")
 
-    # 4. Drawdown comparison (computed from daily_pnl cumsum to avoid cumprod blowup)
+    # 4. Drawdown comparison (clip daily_return to ±50% to prevent outlier cumprod blowup)
     ax = axes[1, 0]
     for name in strategies:
         if name in pnl_dict and not pnl_dict[name].empty:
             pdf = pnl_dict[name]
-            cum_pnl_s = pdf["daily_pnl"].fillna(0).cumsum()
-            notional_s = max(cum_pnl_s.abs().max(), 1)
-            r_s = pdf["daily_pnl"].fillna(0) / notional_s
+            r_s = pdf["daily_return"].fillna(0).clip(-0.5, 0.5)
             cum_s = (1 + r_s).cumprod()
             dd = (cum_s - cum_s.cummax()) / cum_s.cummax()
             ax.plot(pdf["date"], dd, label=name, lw=0.8)

@@ -290,8 +290,10 @@ def plot_cumulative_pnl(pnl_df):
     _fmt_dollar(axes[0])
     _fmt_date(axes[0])
 
-    r = pnl_df["daily_return"].fillna(0)
-    cum_ret = (1 + r).cumprod()
+    # Drawdown: clip daily_return to ±50% to prevent any single outlier
+    # trade from blowing up the cumprod equity curve
+    r_clipped = pnl_df["daily_return"].fillna(0).clip(-0.5, 0.5)
+    cum_ret = (1 + r_clipped).cumprod()
     peak = cum_ret.cummax()
     dd = (cum_ret - peak) / peak
     axes[1].fill_between(pnl_df["date"], dd, 0, color=PLOT_ACCENT, alpha=0.4)
@@ -499,15 +501,13 @@ def plot_summary_dashboard(spx_df, feature_df, signal_df, pnl_df, report):
              bbox=dict(boxstyle="round", facecolor=PLOT_LIGHT, alpha=0.7))
     ax5.set_title("Key Metrics", fontsize=11, fontweight="bold")
 
-    # Panel 6: Drawdown (computed from cumsum of daily PnL to avoid cumprod blowup)
+    # Panel 6: Drawdown (clip daily_return to ±50% to prevent outlier cumprod blowup)
     ax6 = fig.add_subplot(gs[2, :])
     if not pnl_df.empty:
-        cum_pnl_d = pnl_df["daily_pnl"].fillna(0).cumsum()
-        notional_est = max(cum_pnl_d.abs().max(), 1)
-        r_safe = pnl_df["daily_pnl"].fillna(0) / notional_est
-        cum_ret = (1 + r_safe).cumprod()
-        peak = cum_ret.cummax()
-        dd = (cum_ret - peak) / peak
+        r_clipped_d = pnl_df["daily_return"].fillna(0).clip(-0.5, 0.5)
+        cum_ret_d = (1 + r_clipped_d).cumprod()
+        peak_d = cum_ret_d.cummax()
+        dd = (cum_ret_d - peak_d) / peak_d
         ax6.fill_between(pnl_df["date"], dd, 0, color=PLOT_ACCENT, alpha=0.4)
         ax6.plot(pnl_df["date"], dd, lw=0.6, color=PLOT_NEGATIVE, alpha=0.8)
     ax6.set_title("Drawdown (%)", fontsize=11, fontweight="bold")
