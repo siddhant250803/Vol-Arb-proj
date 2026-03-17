@@ -14,6 +14,7 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
+import matplotlib.ticker as mticker
 import seaborn as sns
 
 PROJECT_ROOT = Path(__file__).resolve().parent
@@ -443,14 +444,14 @@ def plot_oos_walkforward(oos_results, split_date, wf_results, spx_df=None):
     fig = plt.figure(figsize=(20, 10))
     gs = gridspec.GridSpec(2, 2, hspace=0.35, wspace=0.3)
 
-    # OOS cumulative PnL (strategy + benchmark)
+    # OOS cumulative PnL (strategy + benchmark, via cumsum to avoid cumprod blowup)
     ax = fig.add_subplot(gs[0, 0])
     for label, color in [("IN-SAMPLE", PLOT_SECONDARY), ("OUT-OF-SAMPLE", PLOT_ACCENT)]:
         r = oos_results.get(label, {})
         pdf = r.get("pnl_df")
         if pdf is not None and not pdf.empty:
-            ax.plot(pdf["date"], pdf["cumulative_pnl"] / 1e6,
-                    color=color, lw=1.2, label=label)
+            cum_pnl = pdf["daily_pnl"].fillna(0).cumsum()
+            ax.plot(pdf["date"], cum_pnl / 1e6, color=color, lw=1.2, label=label)
     if spx_df is not None and not spx_df.empty:
         full_start = oos_results.get("IN-SAMPLE", {}).get("start")
         full_end = oos_results.get("OUT-OF-SAMPLE", {}).get("end")
@@ -462,6 +463,7 @@ def plot_oos_walkforward(oos_results, split_date, wf_results, spx_df=None):
     ax.axvline(split_date, color=PLOT_NEUTRAL, ls="--", lw=1, label=f"Split: {split_date.date()}")
     ax.set_title("Out-of-Sample: Cumulative PnL ($M) vs SPX", fontweight="bold")
     ax.set_ylabel("$ Millions")
+    ax.yaxis.set_major_formatter(mticker.FuncFormatter(lambda x, _: f"${x:.2f}M"))
     ax.legend(fontsize=8)
     ax.grid(True, alpha=0.3)
 
@@ -493,21 +495,23 @@ def plot_oos_walkforward(oos_results, split_date, wf_results, spx_df=None):
     ax.axhline(0, color=PLOT_NEUTRAL, lw=0.5)
     ax.grid(True, alpha=0.3, axis="y")
 
-    # Walk-forward cumulative PnL overlaid
+    # Walk-forward cumulative PnL overlaid (via cumsum to avoid cumprod blowup)
     ax = fig.add_subplot(gs[1, 1])
     cmap = plt.cm.viridis(np.linspace(0.2, 0.9, len(wf_results)))
     for r, c in zip(wf_results, cmap):
         pdf = r.get("pnl_df")
         if pdf is not None and not pdf.empty:
-            ax.plot(pdf["date"], pdf["cumulative_pnl"] / 1e6,
-                    color=c, lw=1, label=f"W{r['window']}")
+            cum_pnl = pdf["daily_pnl"].fillna(0).cumsum()
+            ax.plot(pdf["date"], cum_pnl / 1e6, color=c, lw=1, label=f"W{r['window']}")
     ax.set_title("Walk-Forward: Cumulative PnL ($M)", fontweight="bold")
     ax.set_ylabel("$ Millions")
+    ax.yaxis.set_major_formatter(mticker.FuncFormatter(lambda x, _: f"${x:.2f}M"))
     ax.legend(fontsize=8, ncol=3)
     ax.grid(True, alpha=0.3)
 
     fig.suptitle("Out-of-Sample & Walk-Forward Analysis (vs Buy & Hold SPX)",
                  fontsize=15, fontweight="bold", y=1.01)
+    fig.tight_layout(pad=1.5)
     _save(fig, "15_oos_walkforward")
 
 
@@ -734,6 +738,7 @@ def plot_yearly(yearly_results, spx_df=None):
     ax.set_xticklabels(years, fontsize=8, rotation=45)
     ax.set_title("Total PnL ($M) by Year", fontweight="bold")
     ax.axhline(0, color=PLOT_NEUTRAL, lw=0.5)
+    ax.yaxis.set_major_formatter(mticker.FuncFormatter(lambda x, _: f"${x:.2f}M"))
     ax.grid(True, alpha=0.3, axis="y")
 
     # Win rate by year

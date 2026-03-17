@@ -7,6 +7,7 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
+import matplotlib.ticker as mticker
 import seaborn as sns
 
 from src.config import (
@@ -31,6 +32,32 @@ def _save(fig, name):
     plt.close(fig)
 
 
+def _fmt_dollar(ax, axis="y"):
+    """Apply $K / $M auto-scaled dollar formatting to an axis."""
+    fmt = mticker.FuncFormatter(lambda x, _: f"${x:,.0f}")
+    if axis == "y":
+        ax.yaxis.set_major_formatter(fmt)
+    else:
+        ax.xaxis.set_major_formatter(fmt)
+
+
+def _fmt_pct(ax, axis="y", decimals=0):
+    """Format axis as percentage (input values are 0–1 scale)."""
+    fmt = mticker.PercentFormatter(xmax=1.0, decimals=decimals)
+    if axis == "y":
+        ax.yaxis.set_major_formatter(fmt)
+    else:
+        ax.xaxis.set_major_formatter(fmt)
+
+
+def _fmt_date(ax):
+    """Apply concise date formatting to the x-axis."""
+    ax.xaxis.set_major_locator(mdates.YearLocator())
+    ax.xaxis.set_major_formatter(mdates.DateFormatter("%Y"))
+    ax.xaxis.set_minor_locator(mdates.MonthLocator(bymonth=[4, 7, 10]))
+    ax.tick_params(axis="x", which="major", labelsize=8)
+
+
 def plot_spx_price_and_returns(spx_df):
     """
     Two-panel chart:
@@ -44,15 +71,19 @@ def plot_spx_price_and_returns(spx_df):
     ax1.plot(spx_df["date"], spx_df["spx_close"], lw=0.8, color=PLOT_SECONDARY)
     ax1.set_ylabel("SPX Price")
     ax1.set_title("SPX Price Level & Daily Returns", fontsize=14, fontweight="bold")
+    ax1.yaxis.set_major_formatter(mticker.FuncFormatter(lambda x, _: f"{x:,.0f}"))
     ax1.grid(True, alpha=0.3)
+    _fmt_date(ax1)
 
     ax2.bar(spx_df["date"], spx_df["log_return"], width=1, color=PLOT_NEUTRAL, alpha=0.6)
     ax2.set_ylabel("Log Return")
     ax2.set_xlabel("Date")
     ax2.axhline(0, color=PLOT_NEUTRAL, lw=0.5)
+    _fmt_pct(ax2, decimals=1)
     ax2.grid(True, alpha=0.3)
+    _fmt_date(ax2)
 
-    fig.tight_layout()
+    fig.tight_layout(pad=1.5)
     return _save(fig, "01_spx_price_returns")
 
 
@@ -70,26 +101,31 @@ def plot_options_summary(options_df):
     axes[0, 0].plot(vol_ts.index, vol_ts.values, lw=0.5, color=PLOT_SECONDARY)
     axes[0, 0].set_title("Total Daily Option Volume")
     axes[0, 0].set_ylabel("Contracts")
+    axes[0, 0].yaxis.set_major_formatter(mticker.FuncFormatter(lambda x, _: f"{x:,.0f}"))
+    _fmt_date(axes[0, 0])
 
     axes[0, 1].hist(options_df["impl_volatility"].dropna(), bins=100,
                     color=PLOT_ACCENT, alpha=0.7, edgecolor="none")
     axes[0, 1].set_title("Implied Volatility Distribution")
-    axes[0, 1].set_xlabel("IV")
+    axes[0, 1].set_xlabel("Implied Volatility")
+    _fmt_pct(axes[0, 1], axis="x", decimals=0)
 
     axes[1, 0].hist(options_df["moneyness"], bins=100,
                     color=PLOT_COLORS["300"], alpha=0.7, edgecolor="none")
     axes[1, 0].set_title("Strike Moneyness (K/S)")
+    axes[1, 0].set_xlabel("K / S")
     axes[1, 0].axvline(1.0, color=PLOT_PRIMARY, ls="--", lw=1)
 
     axes[1, 1].hist(options_df["dte"], bins=60,
                     color=PLOT_COLORS["600"], alpha=0.7, edgecolor="none")
     axes[1, 1].set_title("Days to Expiration")
+    axes[1, 1].set_xlabel("DTE (days)")
 
     for ax in axes.flat:
         ax.grid(True, alpha=0.3)
 
     fig.suptitle("Options Data Summary", fontsize=14, fontweight="bold", y=1.01)
-    fig.tight_layout()
+    fig.tight_layout(pad=1.5)
     return _save(fig, "02_options_summary")
 
 
@@ -111,12 +147,14 @@ def plot_iv_vs_rv(feature_df):
         color=PLOT_NEUTRAL,
         label="VRP Spread",
     )
-    ax.set_ylabel("Annualised Volatility")
+    ax.set_ylabel("Annualised Volatility (%)")
     ax.set_title("Implied Volatility vs Realised Volatility", fontsize=14, fontweight="bold")
     ax.legend(loc="upper right")
     ax.grid(True, alpha=0.3)
+    _fmt_pct(ax, decimals=0)
+    _fmt_date(ax)
 
-    fig.tight_layout()
+    fig.tight_layout(pad=1.5)
     return _save(fig, "03_iv_vs_rv")
 
 
@@ -143,12 +181,14 @@ def plot_rv_forecasts(feature_df):
                 label=col.replace("_", " ").title(),
                 lw=0.8, color=colors[i % len(colors)], alpha=0.7)
 
-    ax.set_ylabel("Annualised Volatility")
+    ax.set_ylabel("Annualised Volatility (%)")
     ax.set_title("RV Forecasts vs Actual", fontsize=14, fontweight="bold")
     ax.legend(loc="upper right", fontsize=9)
     ax.grid(True, alpha=0.3)
+    _fmt_pct(ax, decimals=0)
+    _fmt_date(ax)
 
-    fig.tight_layout()
+    fig.tight_layout(pad=1.5)
     return _save(fig, "04_rv_forecasts")
 
 
@@ -165,12 +205,14 @@ def plot_vrp_signal(signal_df):
     # VRP level
     axes[0].plot(signal_df["date"], signal_df["vrp"], lw=0.8, color=PLOT_SECONDARY)
     axes[0].axhline(0, color=PLOT_NEUTRAL, lw=0.5, ls="--")
-    axes[0].set_ylabel("VRP")
+    axes[0].set_ylabel("VRP (vol pts)")
     axes[0].set_title("Variance Risk Premium Signal", fontsize=14, fontweight="bold")
+    _fmt_pct(axes[0], decimals=0)
+    _fmt_date(axes[0])
 
     # Z-score
     axes[1].plot(signal_df["date"], signal_df["vrp_zscore"], lw=0.8, color=PLOT_COLORS["800"])
-    axes[1].axhline(1.0, color=PLOT_PRIMARY, ls="--", lw=0.8, label="Entry threshold")
+    axes[1].axhline(1.0, color=PLOT_PRIMARY, ls="--", lw=0.8, label="Entry threshold (±1σ)")
     axes[1].axhline(-1.0, color=PLOT_POSITIVE, ls="--", lw=0.8)
     axes[1].axhline(0, color=PLOT_NEUTRAL, lw=0.5)
     axes[1].fill_between(signal_df["date"], 1.0, signal_df["vrp_zscore"],
@@ -179,8 +221,9 @@ def plot_vrp_signal(signal_df):
     axes[1].fill_between(signal_df["date"], -1.0, signal_df["vrp_zscore"],
                          where=signal_df["vrp_zscore"] < -1.0,
                          alpha=0.3, color=PLOT_POSITIVE, label="Long vol zone")
-    axes[1].set_ylabel("Z-Score")
+    axes[1].set_ylabel("Z-Score (σ)")
     axes[1].legend(loc="upper right", fontsize=9)
+    _fmt_date(axes[1])
 
     # Signal
     axes[2].bar(signal_df["date"], signal_df["signal"], width=2,
@@ -188,11 +231,13 @@ def plot_vrp_signal(signal_df):
     axes[2].set_ylabel("Signal")
     axes[2].set_yticks([-1, 0, 1])
     axes[2].set_yticklabels(["Long Vol", "Flat", "Short Vol"])
+    axes[2].set_ylim(-1.5, 1.5)
+    _fmt_date(axes[2])
 
     for ax in axes:
         ax.grid(True, alpha=0.3)
 
-    fig.tight_layout()
+    fig.tight_layout(pad=1.5)
     return _save(fig, "05_vrp_signal")
 
 
@@ -227,6 +272,10 @@ def plot_skew_and_term_signals(signal_df):
 
 def plot_cumulative_pnl(pnl_df):
     """Cumulative PnL and drawdown chart."""
+    # Recompute via cumsum of daily PnL (safe against cumprod blowup from outlier trades)
+    pnl_df = pnl_df.copy()
+    pnl_df["cumulative_pnl"] = pnl_df["daily_pnl"].fillna(0).cumsum()
+
     fig, axes = plt.subplots(2, 1, figsize=FIGURE_SIZE, sharex=True,
                              gridspec_kw={"height_ratios": [2, 1]})
 
@@ -234,23 +283,27 @@ def plot_cumulative_pnl(pnl_df):
                  lw=1.2, color=PLOT_COLORS["800"])
     axes[0].fill_between(pnl_df["date"], 0, pnl_df["cumulative_pnl"],
                          alpha=0.1, color=PLOT_PRIMARY)
-    axes[0].set_ylabel("Cumulative PnL ($)")
+    axes[0].set_ylabel("Cumulative PnL")
     axes[0].set_title("Strategy Cumulative PnL & Drawdown",
                       fontsize=14, fontweight="bold")
     axes[0].axhline(0, color=PLOT_NEUTRAL, lw=0.5)
+    _fmt_dollar(axes[0])
+    _fmt_date(axes[0])
 
     r = pnl_df["daily_return"].fillna(0)
     cum_ret = (1 + r).cumprod()
     peak = cum_ret.cummax()
     dd = (cum_ret - peak) / peak
     axes[1].fill_between(pnl_df["date"], dd, 0, color=PLOT_ACCENT, alpha=0.4)
-    axes[1].set_ylabel("Drawdown")
+    axes[1].set_ylabel("Drawdown (%)")
     axes[1].set_xlabel("Date")
+    _fmt_pct(axes[1], decimals=0)
+    _fmt_date(axes[1])
 
     for ax in axes:
         ax.grid(True, alpha=0.3)
 
-    fig.tight_layout()
+    fig.tight_layout(pad=1.5)
     return _save(fig, "07_cumulative_pnl")
 
 
@@ -265,7 +318,8 @@ def plot_trade_analysis(trades_df):
                     alpha=0.7, edgecolor="none")
     axes[0, 0].axvline(0, color=PLOT_PRIMARY, ls="--")
     axes[0, 0].set_title("Trade PnL Distribution")
-    axes[0, 0].set_xlabel("Net PnL ($)")
+    axes[0, 0].set_xlabel("Net PnL")
+    axes[0, 0].xaxis.set_major_formatter(mticker.FuncFormatter(lambda x, _: f"${x:,.0f}"))
 
     for direction, color, label in [(-1, PLOT_PRIMARY, "Long Vol"), (1, PLOT_POSITIVE, "Short Vol")]:
         sub = trades_df[trades_df["direction"] == direction]
@@ -274,29 +328,35 @@ def plot_trade_analysis(trades_df):
                            alpha=0.5, label=label, edgecolor="none")
     axes[0, 1].legend()
     axes[0, 1].set_title("PnL by Direction")
+    axes[0, 1].set_xlabel("Net PnL")
     axes[0, 1].axvline(0, color=PLOT_NEUTRAL, ls="--")
+    axes[0, 1].xaxis.set_major_formatter(mticker.FuncFormatter(lambda x, _: f"${x:,.0f}"))
 
-    axes[1, 0].scatter(trades_df["iv_rv_spread"], trades_df["net_pnl"],
+    sc = axes[1, 0].scatter(trades_df["iv_rv_spread"], trades_df["net_pnl"],
                        alpha=0.5, s=15, c=trades_df["direction"],
                        cmap="RdYlGn")
     axes[1, 0].axhline(0, color=PLOT_NEUTRAL, ls="--")
     axes[1, 0].axvline(0, color=PLOT_NEUTRAL, ls="--")
-    axes[1, 0].set_xlabel("IV − RV Spread at Entry")
-    axes[1, 0].set_ylabel("Net PnL ($)")
+    axes[1, 0].set_xlabel("IV − RV Spread at Entry (vol pts)")
+    axes[1, 0].set_ylabel("Net PnL")
     axes[1, 0].set_title("Entry Spread vs Trade PnL")
+    axes[1, 0].xaxis.set_major_formatter(mticker.PercentFormatter(xmax=1.0, decimals=0))
+    axes[1, 0].yaxis.set_major_formatter(mticker.FuncFormatter(lambda x, _: f"${x:,.0f}"))
 
     cum_pnl = trades_df["net_pnl"].cumsum()
     axes[1, 1].plot(range(len(cum_pnl)), cum_pnl, color=PLOT_COLORS["800"], lw=1.2)
     axes[1, 1].fill_between(range(len(cum_pnl)), 0, cum_pnl, alpha=0.1, color=PLOT_PRIMARY)
     axes[1, 1].set_xlabel("Trade Number")
-    axes[1, 1].set_ylabel("Cumulative PnL ($)")
+    axes[1, 1].set_ylabel("Cumulative PnL")
     axes[1, 1].set_title("Cumulative PnL Over Trades")
+    _fmt_dollar(axes[1, 1])
 
     for ax in axes.flat:
         ax.grid(True, alpha=0.3)
+        ax.tick_params(axis="x", labelrotation=15)
 
     fig.suptitle("Trade-Level Analysis", fontsize=14, fontweight="bold", y=1.01)
-    fig.tight_layout()
+    fig.tight_layout(pad=1.5)
     return _save(fig, "08_trade_analysis")
 
 
@@ -384,6 +444,8 @@ def plot_summary_dashboard(spx_df, feature_df, signal_df, pnl_df, report):
     ax1.plot(spx_df["date"], spx_df["spx_close"], lw=0.7, color=PLOT_SECONDARY)
     ax1.set_title("SPX Price", fontsize=11, fontweight="bold")
     ax1.tick_params(labelsize=8)
+    ax1.yaxis.set_major_formatter(mticker.FuncFormatter(lambda x, _: f"{x:,.0f}"))
+    _fmt_date(ax1)
 
     ax2 = fig.add_subplot(gs[0, 1])
     df2 = feature_df.dropna(subset=["atm_iv_at_expiry", "rvol_monthly"])
@@ -391,24 +453,29 @@ def plot_summary_dashboard(spx_df, feature_df, signal_df, pnl_df, report):
         ax2.plot(df2["date"], df2["atm_iv_at_expiry"], lw=0.7, label="IV", color=PLOT_COLORS["700"])
         ax2.plot(df2["date"], df2["rvol_monthly"], lw=0.7, label="RV", color=PLOT_PRIMARY)
         ax2.legend(fontsize=8)
-    ax2.set_title("IV vs RV", fontsize=11, fontweight="bold")
+    ax2.set_title("IV vs RV (Ann.)", fontsize=11, fontweight="bold")
     ax2.tick_params(labelsize=8)
+    _fmt_pct(ax2, decimals=0)
+    _fmt_date(ax2)
 
     ax3 = fig.add_subplot(gs[0, 2])
     ax3.plot(signal_df["date"], signal_df["vrp_zscore"], lw=0.7, color=PLOT_COLORS["800"])
     ax3.axhline(1, color=PLOT_PRIMARY, ls="--", lw=0.5)
     ax3.axhline(-1, color=PLOT_POSITIVE, ls="--", lw=0.5)
-    ax3.set_title("VRP Z-Score", fontsize=11, fontweight="bold")
+    ax3.set_title("VRP Z-Score (σ)", fontsize=11, fontweight="bold")
     ax3.tick_params(labelsize=8)
+    _fmt_date(ax3)
 
     ax4 = fig.add_subplot(gs[1, :2])
     if not pnl_df.empty:
-        ax4.plot(pnl_df["date"], pnl_df["cumulative_pnl"], lw=1.0, color=PLOT_COLORS["800"])
-        ax4.fill_between(pnl_df["date"], 0, pnl_df["cumulative_pnl"],
-                        alpha=0.1, color=PLOT_PRIMARY)
+        cum_pnl = pnl_df["daily_pnl"].fillna(0).cumsum()
+        ax4.plot(pnl_df["date"], cum_pnl, lw=1.0, color=PLOT_COLORS["800"])
+        ax4.fill_between(pnl_df["date"], 0, cum_pnl, alpha=0.1, color=PLOT_PRIMARY)
     ax4.set_title("Cumulative PnL", fontsize=11, fontweight="bold")
     ax4.tick_params(labelsize=8)
     ax4.axhline(0, color=PLOT_NEUTRAL, lw=0.5)
+    _fmt_dollar(ax4)
+    _fmt_date(ax4)
 
     # Panel 5: Performance metrics text
     ax5 = fig.add_subplot(gs[1, 2])
@@ -432,16 +499,21 @@ def plot_summary_dashboard(spx_df, feature_df, signal_df, pnl_df, report):
              bbox=dict(boxstyle="round", facecolor=PLOT_LIGHT, alpha=0.7))
     ax5.set_title("Key Metrics", fontsize=11, fontweight="bold")
 
-    # Panel 6: Drawdown
+    # Panel 6: Drawdown (computed from cumsum of daily PnL to avoid cumprod blowup)
     ax6 = fig.add_subplot(gs[2, :])
     if not pnl_df.empty:
-        r = pnl_df["daily_return"].fillna(0)
-        cum_ret = (1 + r).cumprod()
+        cum_pnl_d = pnl_df["daily_pnl"].fillna(0).cumsum()
+        notional_est = max(cum_pnl_d.abs().max(), 1)
+        r_safe = pnl_df["daily_pnl"].fillna(0) / notional_est
+        cum_ret = (1 + r_safe).cumprod()
         peak = cum_ret.cummax()
         dd = (cum_ret - peak) / peak
         ax6.fill_between(pnl_df["date"], dd, 0, color=PLOT_ACCENT, alpha=0.4)
-    ax6.set_title("Drawdown", fontsize=11, fontweight="bold")
+        ax6.plot(pnl_df["date"], dd, lw=0.6, color=PLOT_NEGATIVE, alpha=0.8)
+    ax6.set_title("Drawdown (%)", fontsize=11, fontweight="bold")
     ax6.tick_params(labelsize=8)
+    _fmt_pct(ax6, decimals=0)
+    _fmt_date(ax6)
 
     for ax in [ax1, ax2, ax3, ax4, ax6]:
         ax.grid(True, alpha=0.2)

@@ -13,6 +13,7 @@ import pandas as pd
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
+import matplotlib.ticker as mticker
 import seaborn as sns
 
 PROJECT_ROOT = Path(__file__).resolve().parent
@@ -158,7 +159,8 @@ def plot_strategy_comparison(results, pnl_dict, spx_df=None):
     for name in strategies:
         if name in pnl_dict and not pnl_dict[name].empty:
             pdf = pnl_dict[name]
-            ax.plot(pdf["date"], pdf["cumulative_pnl"] / 1e6, label=name, lw=1.2)
+            cum_pnl = pdf["daily_pnl"].fillna(0).cumsum()
+            ax.plot(pdf["date"], cum_pnl / 1e6, label=name, lw=1.2)
     # Add buy-and-hold SPX benchmark ($1M notional)
     if spx_df is not None and not spx_df.empty:
         all_dates = pd.concat([pnl_dict[n]["date"] for n in strategies if n in pnl_dict and not pnl_dict[n].empty], ignore_index=True)
@@ -175,9 +177,11 @@ def plot_strategy_comparison(results, pnl_dict, spx_df=None):
             ax.plot(spx["date"], bench_pnl_m, label="Buy & Hold SPX", lw=1, color=PLOT_NEUTRAL, ls="--")
     ax.set_title("Cumulative PnL ($M) vs Buy & Hold SPX", fontsize=12, fontweight="bold")
     ax.set_ylabel("$ Millions")
+    ax.yaxis.set_major_formatter(mticker.FuncFormatter(lambda x, _: f"${x:.2f}M"))
     ax.legend(fontsize=9)
     ax.axhline(0, color=PLOT_NEUTRAL, lw=0.5)
     ax.grid(True, alpha=0.3)
+    ax.xaxis.set_major_locator(mticker.MaxNLocator(integer=True, nbins=6))
 
     # 2. Sharpe ratios (strategies only; benchmark in table)
     ax = axes[0, 1]
@@ -201,21 +205,28 @@ def plot_strategy_comparison(results, pnl_dict, spx_df=None):
     ax.set_title("Trades & Win Rate", fontsize=12, fontweight="bold")
     ax.set_ylabel("# Trades")
     ax2.set_ylabel("Win Rate %")
-    ax2.set_ylim(30, 80)
+    if win_rates:
+        lo_wr = max(0, min(win_rates) - 10)
+        hi_wr = min(100, max(win_rates) + 10)
+        ax2.set_ylim(lo_wr, hi_wr)
     ax.legend(loc="upper left", fontsize=8)
     ax2.legend(loc="upper right", fontsize=8)
     ax.grid(True, alpha=0.3, axis="y")
 
-    # 4. Drawdown comparison
+    # 4. Drawdown comparison (computed from daily_pnl cumsum to avoid cumprod blowup)
     ax = axes[1, 0]
     for name in strategies:
         if name in pnl_dict and not pnl_dict[name].empty:
             pdf = pnl_dict[name]
-            cum = (1 + pdf["daily_return"].fillna(0)).cumprod()
-            dd = (cum - cum.cummax()) / cum.cummax()
-            ax.plot(pdf["date"], dd * 100, label=name, lw=0.8)
-    ax.set_title("Drawdown (%)", fontsize=12, fontweight="bold")
-    ax.set_ylabel("Drawdown %")
+            cum_pnl_s = pdf["daily_pnl"].fillna(0).cumsum()
+            notional_s = max(cum_pnl_s.abs().max(), 1)
+            r_s = pdf["daily_pnl"].fillna(0) / notional_s
+            cum_s = (1 + r_s).cumprod()
+            dd = (cum_s - cum_s.cummax()) / cum_s.cummax()
+            ax.plot(pdf["date"], dd, label=name, lw=0.8)
+    ax.set_title("Drawdown", fontsize=12, fontweight="bold")
+    ax.set_ylabel("Drawdown (%)")
+    ax.yaxis.set_major_formatter(mticker.PercentFormatter(xmax=1.0, decimals=0))
     ax.legend(fontsize=9)
     ax.grid(True, alpha=0.3)
 

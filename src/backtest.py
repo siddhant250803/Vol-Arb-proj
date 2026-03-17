@@ -282,6 +282,11 @@ def run_backtest(signal_df, spx_df, hold_days=None, cost_bps=None,
 
             # Position sizing: how many contracts can we trade?
             cost_per_contract = straddle_per_share * multiplier
+            # Guard against near-zero straddle prices (bad data) creating enormous positions.
+            # Cap at notional / $1 per contract floor = notional contracts max.
+            if cost_per_contract < 0.01:
+                i += 1
+                continue
             n_contracts = max(1, int(notional / cost_per_contract))
 
             i += 1
