@@ -93,15 +93,26 @@ def compute_drawdown(daily_returns, sparse_realized=False):
     if r_equity.empty:
         return {"drawdown_series": pd.Series(), "max_drawdown": 0.0, "max_dd_start": None, "max_dd_end": None}
 
+    # Build equity curve starting from 1.0.
+    # We prepend a phantom 1.0 in the running-peak calculation so that
+    # first-period losses register as drawdowns (matching empyrical's convention
+    # of inserting start=100 before cummax).  clip(lower=1.0) on cummax achieves
+    # the same effect without changing the index.
     cum = (1 + r_equity).cumprod()
-    peak = cum.cummax()
-    dd = np.where(peak > 1e-12, (cum - peak) / peak, 0.0)
-    dd = pd.Series(dd, index=r_equity.index)
+    peak = cum.cummax().clip(lower=1.0)
+    dd = (cum - peak) / peak
+    dd = dd.clip(upper=0.0)  # drawdown is always ≤ 0; floating-point noise guard
 
-    max_dd_val = ep.max_drawdown(r_equity)
-    max_dd = float(max_dd_val) if max_dd_val is not None and not np.isnan(max_dd_val) else dd.min()
+    max_dd = float(dd.min())
     max_dd_end = dd.idxmin() if len(dd) > 0 else None
-    max_dd_start = cum.loc[:max_dd_end].idxmax() if max_dd_end is not None else None
+    # Peak before the trough: look back through the equity curve including the
+    # implicit starting point of 1.0.  If the series never cleared 1.0 we fall
+    # back to the first date.
+    if max_dd_end is not None:
+        pre_trough = cum.loc[:max_dd_end]
+        max_dd_start = pre_trough.idxmax() if not pre_trough.empty else r_equity.index[0]
+    else:
+        max_dd_start = None
 
     return {
         "drawdown_series": dd,

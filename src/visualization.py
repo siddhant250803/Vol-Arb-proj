@@ -270,26 +270,32 @@ def plot_skew_and_term_signals(signal_df):
 def plot_cumulative_pnl(pnl_df):
     """Cumulative PnL and drawdown chart."""
     pnl_df = pnl_df.copy()
-    pnl_df["cumulative_pnl"] = pnl_df["daily_pnl"].fillna(0).cumsum()
 
     fig, axes = plt.subplots(2, 1, figsize=FIGURE_SIZE, sharex=True,
                              gridspec_kw={"height_ratios": [2, 1]})
 
-    axes[0].plot(pnl_df["date"], pnl_df["cumulative_pnl"],
-                 lw=1.2, color=PLOT_COLORS["800"])
-    axes[0].fill_between(pnl_df["date"], 0, pnl_df["cumulative_pnl"],
-                         alpha=0.1, color=PLOT_PRIMARY)
-    axes[0].set_ylabel("Cumulative PnL")
+    # Top panel: arithmetic cumsum of dollar PnL.
+    # The strategy uses a FIXED notional per trade — profits are NOT reinvested.
+    # Geometric compounding (cumprod) is wrong here and causes exponential blowup
+    # when individual trade returns are large (e.g. 50% on a single trade).
+    cum_pnl = pnl_df["daily_pnl"].fillna(0).cumsum()
+    axes[0].plot(pnl_df["date"], cum_pnl, lw=1.2, color=PLOT_COLORS["800"])
+    axes[0].fill_between(pnl_df["date"], 0, cum_pnl, alpha=0.1, color=PLOT_PRIMARY)
+    axes[0].set_ylabel("Cumulative PnL ($)")
     axes[0].set_title("Strategy Cumulative PnL & Drawdown",
                       fontsize=14, fontweight="bold")
     axes[0].axhline(0, color=PLOT_NEUTRAL, lw=0.5)
     _fmt_dollar(axes[0])
     _fmt_date(axes[0])
 
-    r_clipped = pnl_df["daily_return"].fillna(0).clip(-0.5, 0.5)
-    cum_ret = (1 + r_clipped).cumprod()
-    peak = cum_ret.cummax()
-    dd = (cum_ret - peak) / peak
+    # Bottom panel: drawdown consistent with the arithmetic PnL above.
+    # equity = 1 + cumsum(daily_return) = 1 + cumsum(daily_pnl) / notional.
+    # This is the arithmetic equity curve — no reinvestment, no compounding blowup.
+    # clip(lower=1.0) ensures first-period losses register as drawdowns
+    # (matching empyrical's start=100 convention).
+    equity = 1.0 + pnl_df["daily_return"].fillna(0).cumsum()
+    peak = equity.cummax().clip(lower=1.0)
+    dd = ((equity - peak) / peak).clip(upper=0.0)
     axes[1].fill_between(pnl_df["date"], dd, 0, color=PLOT_ACCENT, alpha=0.4)
     axes[1].set_ylabel("Drawdown (%)")
     axes[1].set_xlabel("Date")

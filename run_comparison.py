@@ -152,21 +152,32 @@ def plot_strategy_comparison(results, pnl_dict, spx_df=None):
         print("  [viz] No strategies to compare — skipping.")
         return
 
+    # Align all strategies to a common start date so the comparison is fair.
+    # Use the latest first-date across strategies (i.e. when all have data).
+    common_start = max(
+        pnl_dict[n]["date"].dropna().min()
+        for n in strategies if n in pnl_dict and not pnl_dict[n].empty
+    )
+    print(f"  [viz] Aligning comparison to common start: {common_start.date()}")
+
     fig, axes = plt.subplots(2, 3, figsize=(20, 11))
 
     ax = axes[0, 0]
     for name in strategies:
         if name in pnl_dict and not pnl_dict[name].empty:
-            pdf = pnl_dict[name]
+            pdf = pnl_dict[name].copy()
+            pdf = pdf[pdf["date"] >= common_start].reset_index(drop=True)
             cum_pnl = pdf["daily_pnl"].fillna(0).cumsum()
             ax.plot(pdf["date"], cum_pnl / 1e6, label=name, lw=1.2)
     if spx_df is not None and not spx_df.empty:
-        all_dates = pd.concat([pnl_dict[n]["date"] for n in strategies if n in pnl_dict and not pnl_dict[n].empty], ignore_index=True)
-        start, end = all_dates.min(), all_dates.max()
+        end = max(
+            pnl_dict[n]["date"].dropna().max()
+            for n in strategies if n in pnl_dict and not pnl_dict[n].empty
+        )
         spx = spx_df[["date", "spx_close"]].copy()
         spx["date"] = pd.to_datetime(spx["date"])
         spx = spx.sort_values("date").drop_duplicates("date")
-        spx = spx[(spx["date"] >= start) & (spx["date"] <= end)]
+        spx = spx[(spx["date"] >= common_start) & (spx["date"] <= end)]
         if len(spx) > 1:
             spx = spx.sort_values("date")
             ret = spx["spx_close"].pct_change().fillna(0)
@@ -212,10 +223,13 @@ def plot_strategy_comparison(results, pnl_dict, spx_df=None):
     ax = axes[1, 0]
     for name in strategies:
         if name in pnl_dict and not pnl_dict[name].empty:
-            pdf = pnl_dict[name]
-            r_s = pdf["daily_return"].fillna(0).clip(-0.5, 0.5)
-            cum_s = (1 + r_s).cumprod()
-            dd = (cum_s - cum_s.cummax()) / cum_s.cummax()
+            pdf = pnl_dict[name].copy()
+            pdf = pdf[pdf["date"] >= common_start].reset_index(drop=True)
+            # Arithmetic equity: 1 + cumsum(daily_return).  Consistent with the
+            # fixed-notional PnL panel; avoids geometric compounding blowup.
+            equity = 1.0 + pdf["daily_return"].fillna(0).cumsum()
+            peak = equity.cummax().clip(lower=1.0)
+            dd = ((equity - peak) / peak).clip(upper=0.0)
             ax.plot(pdf["date"], dd, label=name, lw=0.8)
     ax.set_title("Drawdown", fontsize=12, fontweight="bold")
     ax.set_ylabel("Drawdown (%)")
@@ -226,7 +240,8 @@ def plot_strategy_comparison(results, pnl_dict, spx_df=None):
     ax = axes[1, 1]
     for name in strategies:
         if name in pnl_dict and not pnl_dict[name].empty:
-            pdf = pnl_dict[name]
+            pdf = pnl_dict[name].copy()
+            pdf = pdf[pdf["date"] >= common_start]
             ax.hist(pdf["daily_return"] * 100, bins=50, alpha=0.4, label=name)
     ax.set_title("Daily Return Distribution (%)", fontsize=12, fontweight="bold")
     ax.set_xlabel("Daily Return %")
